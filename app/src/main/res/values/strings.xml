@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">CPR Dummy</string>
+    <string name="depth_label">Depth (cm)</string>
+    <string name="pressure_label">Pressure (kPa)</string>
+    <string name="chart_description">CPR Simulation Dummy</string>
+    <string name="none_paired">No devices have been paired</string>
+</resources>
