@@ -52,6 +52,7 @@ public class MainActivity extends Activity {
 
     private static final int DEFAULT_VISIBLE_TIME_RANGE = 10;
     private static final int MINIMUM_VISIBLE_TIME_RANGE = 5;
+    private static final int MAXIMUM_VISIBLE_TIME_RANGE = 60;
     private static final int TIME_PADDING = 2;
     private static final int DEFAULT_Y = 5;
 
@@ -65,7 +66,7 @@ public class MainActivity extends Activity {
 
     SeekBar slider;
 
-    private float maxY = 0, time = 0;
+    private float maxY = DEFAULT_Y, time = 0;
     private int visibleTimeRange;
 
     @Override
@@ -186,19 +187,23 @@ public class MainActivity extends Activity {
                     String readMessage = (String) msg.obj; // msg.arg1 = bytes from connect thread
                     recDataString.append(readMessage); //keep appending to string until "~"
 
-                    int endOfLineIndex = recDataString.indexOf("~"); // determine the end-of-line
-                    if (endOfLineIndex > 0) { // make sure there data before ~
-                        String dataInPrint = recDataString.substring(0, endOfLineIndex); // extract string
-                        Log.i("MainActivity", dataInPrint);
-                        //int dataLength = dataInPrint.length(); //get length of data received
-
-                        if (recDataString.charAt(0) == '#')	//if it starts with # we know it is what we are looking for
-                        {
-                            processBTMessage(recDataString.toString());
+                    int startOfLineIndex = recDataString.indexOf("#"); //determine start-of-line
+                    if (startOfLineIndex >= 0) { // make sure there is a '#'
+                        if(startOfLineIndex > 0) { //if the '#' isn't the first character
+                            recDataString.delete(0,startOfLineIndex); //delete extra text before the '#'
+                            startOfLineIndex = 0; //'#' is now first char
                         }
-                        recDataString.delete(0, recDataString.length()); //clear all string data
 
-                        //dataInPrint = " ";
+                        int endOfLineIndex = recDataString.indexOf("~"); // determine the end-of-line
+                        if(endOfLineIndex > 0) { // make sure there is data before ~
+                            String dataInPrint = recDataString.substring(startOfLineIndex, endOfLineIndex); // extract string
+                            Log.i("MainActivity", "bluetoothIn.handleMessage(): " + dataInPrint);
+
+                            processBTMessage(dataInPrint);
+
+                            recDataString.delete(0, recDataString.length()); //clear all string data
+
+                        }
                     }
                 }
             }
@@ -207,11 +212,13 @@ public class MainActivity extends Activity {
         btAdapter = BluetoothAdapter.getDefaultAdapter();       // get Bluetooth adapter
         checkBTState();
 
+        /*
         //add test data
         String[] testData=readTestData().split("~");
         for(String dataPoint : testData) {
             processBTMessage(dataPoint);
         }
+        */
 
     }
 
@@ -244,23 +251,22 @@ public class MainActivity extends Activity {
     }
 
     /**
-     * clear all data and refresh Y axis. x axis stays the same because time is still counting up
+     * clear all data and refresh axes and pressure
      */
     private void refreshChart() {
         depthEntries.clear();
         pressureEntries.clear();
-        maxY = 0;
+        maxY = DEFAULT_Y;
 
         //create starting point
         depthEntries.add(new Entry(0, 0));
         pressureEntries.add(new Entry(0, 0));
 
-        //visibleTimeRange = DEFAULT_VISIBLE_TIME_RANGE;
-        //xAxis.setAxisMinimum(0);
-        //xAxis.setAxisMaximum(visibleTimeRange);
-        reformatAxis(DEFAULT_Y,time);
+        reformatAxis(DEFAULT_Y,0); //reset y axis
 
-        //slider.setProgress(DEFAULT_VISIBLE_TIME_RANGE - MINIMUM_VISIBLE_TIME_RANGE);
+        mConnectedThread.write("R"); //tell arduino to reset time and pressure
+
+        //slider.setProgress(DEFAULT_VISIBLE_TIME_RANGE - MINIMUM_VISIBLE_TIME_RANGE); //uncomment to reset x scale & slider
     }
 
     /**
@@ -268,26 +274,43 @@ public class MainActivity extends Activity {
      * @param msg the bluetooth message string of the form #TIME:DEPTH,PRESSURE
      */
     private void processBTMessage(String msg) {
+        //extract time, depth, and pressure from string bluetooth message
         int timeEnd = msg.indexOf(":");
         int depthEnd = msg.indexOf(",");
         String timeStr = msg.substring(1, timeEnd);
         String depthStr = msg.substring(timeEnd + 1, depthEnd);
         String pressureStr = msg.substring(depthEnd + 1);
 
-        float time = Long.valueOf(timeStr) / 1000f;
+        time = Long.valueOf(timeStr) / 1000f; //convert from millis to seconds and update global time variable
         int depth = Integer.valueOf(depthStr);
         float pressure = Float.valueOf(pressureStr);
 
+        //add new data points for depth and pressure
         depthEntries.add(new Entry(time, depth));
         pressureEntries.add(new Entry(time, pressure));
 
-        this.time = time; //update global time variable
+        //discard data points for times that can no longer be displayed (> 60sec)
+        deleteOldDataPoints();
+
+        //log for debugging
+        Log.i("MainActivity", "processBTMessage: message=\"" + msg + "\"\t,time=" + time + "\t,depth=" + depth + "\t,pressure=" + pressure);
 
         if(depth > maxY || pressure > maxY) { //if there is a new max y value
             maxY = depth > pressure ? depth : pressure; //make the greater of pressure and depth maxY
             reformatAxis(maxY, time); //reformat x and y axis
         } else {
             reformatAxis(time); //just reformat x axis
+        }
+    }
+
+    /**
+     * discard data points that can no longer be displayed because they happened greater than MAXIMUM_VISIBLE_TIME_RANGE
+     * seconds ago
+     */
+    private void deleteOldDataPoints() {
+        while(depthEntries.get(0).getX() < (time - MAXIMUM_VISIBLE_TIME_RANGE)) {
+            depthEntries.remove(0);
+            pressureEntries.remove(0);
         }
     }
 
@@ -307,7 +330,7 @@ public class MainActivity extends Activity {
             xAxis.setAxisMinimum(0);
         }
 
-        chart.fitScreen();
+        chart.fitScreen(); //set visible boundaries to max
     }
 
     /**
@@ -334,7 +357,7 @@ public class MainActivity extends Activity {
     public void onResume() {
         super.onResume();
 
-        /*//Get MAC address from DeviceListActivity via intent
+        //Get MAC address from DeviceListActivity via intent
         Intent intent = getIntent();
 
         //Get the MAC address from the DeviceListActivty via EXTRA
@@ -364,25 +387,27 @@ public class MainActivity extends Activity {
         mConnectedThread = new ConnectedThread(btSocket);
         mConnectedThread.start();
 
-        //I send a character when resuming.beginning transmission to check device is connected
+        //Send a character when resuming.beginning transmission to check device is connected
         //If it is not an exception will be thrown in the write method and finish() will be called
-        mConnectedThread.write("x");*/
+        mConnectedThread.write("x");
     }
 
     @Override
     public void onPause()
     {
         super.onPause();
-        /*try
+        try
         {
             //Don't leave Bluetooth sockets open when leaving activity
             btSocket.close();
         } catch (IOException e2) {
             //insert code to deal with this
-        }*/
+        }
     }
 
-    //Checks that the Android device Bluetooth is available and prompts to be turned on if off
+    /**
+     * Checks that the Android device Bluetooth is available and prompts to be turned on if off
+     */
     private void checkBTState() {
 
         if(btAdapter==null) {
@@ -426,12 +451,12 @@ public class MainActivity extends Activity {
                 try {
                     bytes = mmInStream.read(buffer);        	//read bytes from input buffer
                     String readMessage = new String(buffer, 0, bytes);
-                    Log.i("MainActivity", readMessage);
+                    //Log.i("MainActivity", readMessage);
                     // Send the obtained bytes to the UI Activity via handler
                     bluetoothIn.obtainMessage(handlerState, bytes, -1, readMessage).sendToTarget();
                 } catch (IOException e) {
-                    //e.printStackTrace();
-                    //break;
+                    e.printStackTrace();
+                    break;
                 }
             }
         }
