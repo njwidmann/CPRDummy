@@ -54,7 +54,8 @@ public class MainActivity extends Activity {
     private static final int MINIMUM_VISIBLE_TIME_RANGE = 5;
     private static final int MAXIMUM_VISIBLE_TIME_RANGE = 60;
     private static final int TIME_PADDING = 2;
-    private static final int DEFAULT_Y = 5;
+    private static final int MAXIMUM_Y = 145;
+    private static final int BASELINE_BP = 30;
 
     // String for MAC address
     private static String address;
@@ -66,8 +67,10 @@ public class MainActivity extends Activity {
 
     SeekBar slider;
 
-    private float maxY = DEFAULT_Y, time = 0;
+    private float time = 0;
     private int visibleTimeRange;
+
+    private boolean initialized;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -86,7 +89,7 @@ public class MainActivity extends Activity {
 
         //create starting point
         depthEntries.add(new Entry(0, 0));
-        pressureEntries.add(new Entry(0, 0));
+        pressureEntries.add(new Entry(0, BASELINE_BP));
 
         //create datasets
         LineDataSet depthDataSet = new LineDataSet(depthEntries, getString(R.string.depth_label));
@@ -132,24 +135,10 @@ public class MainActivity extends Activity {
         xAxis.setAxisMinimum(0);
         xAxis.setAxisMaximum(visibleTimeRange);
         yAxis.setAxisMinimum(0);
-
-        //set y axis bounds with default
-        reformatAxis(DEFAULT_Y,0);
+        yAxis.setAxisMaximum(MAXIMUM_Y);
 
         //don't let user pinch to scale chart. This would get weird with real time data
         chart.setScaleEnabled(false);
-
-        /*
-        //button and text input for test points
-        final Button addButton = (Button)findViewById(R.id.add_button);
-        addButton.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                EditText editText = (EditText)findViewById(R.id.edit_text);
-                String text = editText.getText().toString();
-                processBTMessage(text);
-            }
-        });
-        */
 
         //button to refresh chart and clear all data
         final Button refreshButton = (Button)findViewById(R.id.refresh_button);
@@ -212,61 +201,34 @@ public class MainActivity extends Activity {
         btAdapter = BluetoothAdapter.getDefaultAdapter();       // get Bluetooth adapter
         checkBTState();
 
-        /*
-        //add test data
-        String[] testData=readTestData().split("~");
-        for(String dataPoint : testData) {
-            processBTMessage(dataPoint);
-        }
-        */
-
-    }
-
-    /**
-     * read text from file res/raw/testdata.txt
-     * @return String of all text from file
-     */
-    private String readTestData(){
-        InputStream stream = getResources().openRawResource(R.raw.testdata);
-
-        Writer writer = new StringWriter();
-        char[] buffer = new char[10240];
-        try {
-            Reader reader = new BufferedReader(
-                    new InputStreamReader(stream, "UTF-8"));
-            int n;
-            while ((n = reader.read(buffer)) != -1) {
-                writer.write(buffer, 0, n);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            try {
-                stream.close();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-        return writer.toString();
     }
 
     /**
      * clear all data and refresh axes and pressure
      */
     private void refreshChart() {
-        depthEntries.clear();
-        pressureEntries.clear();
-        maxY = DEFAULT_Y;
 
-        //create starting point
-        depthEntries.add(new Entry(0, 0));
-        pressureEntries.add(new Entry(0, 0));
+        mConnectedThread.write("R"); //tell arduino to reset time, depth, and pressure
 
-        reformatAxis(DEFAULT_Y,0); //reset y axis
+        //pause refresh execution until arduino receives command
+        Handler handler = new Handler();
+        Runnable r = new Runnable() {
+            public void run() {
+                depthEntries.clear();
+                pressureEntries.clear();
 
-        mConnectedThread.write("R"); //tell arduino to reset time and pressure
+                //create starting point
+                depthEntries.add(new Entry(0, 0));
+                pressureEntries.add(new Entry(0, BASELINE_BP));
 
-        //slider.setProgress(DEFAULT_VISIBLE_TIME_RANGE - MINIMUM_VISIBLE_TIME_RANGE); //uncomment to reset x scale & slider
+                reformatAxis(0); //reset x axis
+
+                initialized = true; //start collecting new data points
+
+                //slider.setProgress(DEFAULT_VISIBLE_TIME_RANGE - MINIMUM_VISIBLE_TIME_RANGE); //uncomment to reset x scale & slider
+            }
+        };
+        handler.postDelayed(r, 100);
     }
 
     /**
@@ -295,12 +257,8 @@ public class MainActivity extends Activity {
         //log for debugging
         Log.i("MainActivity", "processBTMessage: message=\"" + msg + "\"\t,time=" + time + "\t,depth=" + depth + "\t,pressure=" + pressure);
 
-        if(depth > maxY || pressure > maxY) { //if there is a new max y value
-            maxY = depth > pressure ? depth : pressure; //make the greater of pressure and depth maxY
-            reformatAxis(maxY, time); //reformat x and y axis
-        } else {
-            reformatAxis(time); //just reformat x axis
-        }
+        reformatAxis(time);
+
     }
 
     /**
@@ -331,19 +289,6 @@ public class MainActivity extends Activity {
         }
 
         chart.fitScreen(); //set visible boundaries to max
-    }
-
-    /**
-     * Same as reformatAxis(time) but also adjusts to fit the max Y value. Called if there is a new
-     * max Y value. Upper boundary of chart is 1.1 * maxY. Lower boundary is 0.
-     * @param maxY maximum y value (pressure or depth)
-     * @param time last logged time
-     */
-    private void reformatAxis(float maxY, float time) {
-        float padding = maxY * 0.1f;
-        yAxis.setAxisMaximum(maxY + padding);
-
-        reformatAxis(time);
     }
 
 
@@ -390,6 +335,10 @@ public class MainActivity extends Activity {
         //Send a character when resuming.beginning transmission to check device is connected
         //If it is not an exception will be thrown in the write method and finish() will be called
         mConnectedThread.write("x");
+
+        refreshChart(); //refresh chart (set x axis to 0)
+
+
     }
 
     @Override
@@ -400,10 +349,12 @@ public class MainActivity extends Activity {
         {
             //Don't leave Bluetooth sockets open when leaving activity
             btSocket.close();
+            initialized = false; //stop collecting data points
         } catch (IOException e2) {
             //insert code to deal with this
         }
     }
+
 
     /**
      * Checks that the Android device Bluetooth is available and prompts to be turned on if off
@@ -453,7 +404,9 @@ public class MainActivity extends Activity {
                     String readMessage = new String(buffer, 0, bytes);
                     //Log.i("MainActivity", readMessage);
                     // Send the obtained bytes to the UI Activity via handler
-                    bluetoothIn.obtainMessage(handlerState, bytes, -1, readMessage).sendToTarget();
+                    if(initialized) { //wait for refresh to be called to initial x axis before collecting data points
+                        bluetoothIn.obtainMessage(handlerState, bytes, -1, readMessage).sendToTarget();
+                    }
                 } catch (IOException e) {
                     e.printStackTrace();
                     break;
