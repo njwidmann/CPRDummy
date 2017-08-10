@@ -18,7 +18,7 @@ public abstract class BloodPressureMonitor {
     private static ArrayList<Long> timeLog = new ArrayList<>();
     private static long startTime = -1L;
     private static long lastLoggedSystemTime;
-    private static long lastLoggedTime;
+    private static long lastLoggedTime = 0;
     private static int lastLoggedDepth;
 
     public BloodPressureMonitor() {
@@ -28,14 +28,15 @@ public abstract class BloodPressureMonitor {
 
     public void updateDepth(long currentTime, int currentDepth) {
         if(currentDepth < 0) currentDepth = 0;
-        lastLoggedTime = currentTime;
-        lastLoggedDepth = currentDepth;
-        if(startTime < 0) {
-            startTime = currentTime;
+        if(currentTime > lastLoggedTime) { //we don't want to log any points out of order. There's a chance this could happen because we are creating straight data on Android
+            lastLoggedTime = currentTime;
+            lastLoggedDepth = currentDepth;
+            if (startTime < 0) {
+                startTime = currentTime;
+            }
+            depthLog.add(currentDepth);
+            timeLog.add(currentTime);
         }
-        depthLog.add(currentDepth);
-        timeLog.add(currentTime);
-        lastLoggedSystemTime = getCurrentTime();
     }
 
     public static long getStartTime() {
@@ -54,9 +55,9 @@ public abstract class BloodPressureMonitor {
         @Override
         public void run() {
             while(RUNNING) {
-                if(getStartTime() > 0 && getCurrentTime() - lastLoggedSystemTime > 200) {
+                if(getStartTime() > 0 && getCurrentTime() - lastLoggedSystemTime > 100) {
                     //add straight data. arduino only logs on changes so we can assume constant depth if no update
-                    updateDepth(lastLoggedTime + 200, lastLoggedDepth);
+                    updateDepth(lastLoggedTime + 100, lastLoggedDepth);
                 }
                 if(timeLog.size() > 0 && depthLog.size() > 0) {
                     try {
@@ -75,6 +76,7 @@ public abstract class BloodPressureMonitor {
                         }
 
                         plotAll((time - startTime)/1000f, depth, pressure, endTitle);
+                        lastLoggedSystemTime = getCurrentTime();
 
                     } catch(Exception ex) {
                         ex.printStackTrace();
