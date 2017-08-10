@@ -50,12 +50,13 @@ public class MainActivity extends Activity {
     // SPP UUID service - this should work for most devices
     private static final UUID BTMODULEUUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
 
+    private static final String TAG = "MainActivity";
+
     private static final int DEFAULT_VISIBLE_TIME_RANGE = 10;
     private static final int MINIMUM_VISIBLE_TIME_RANGE = 5;
     private static final int MAXIMUM_VISIBLE_TIME_RANGE = 60;
     private static final int TIME_PADDING = 2;
-    private static final int MAXIMUM_Y = 145;
-    private static final int BASELINE_BP = 30;
+    private static int MAXIMUM_Y = 145;
 
     // String for MAC address
     private static String address;
@@ -63,7 +64,7 @@ public class MainActivity extends Activity {
     LineChart chart;
     XAxis xAxis;
     YAxis yAxis;
-    List<Entry> depthEntries, pressureEntries;
+    List<Entry> depthEntries, pressureEntries, endTitleEntries;
 
     SeekBar slider;
 
@@ -71,6 +72,12 @@ public class MainActivity extends Activity {
     private int visibleTimeRange;
 
     private boolean initialized;
+
+    private BloodPressureMonitor bloodPressureMonitor;
+    private EndTitleMonitor endTitleMonitor;
+
+    private EditText bpmTextField, avgDepthTextField, avgLeaningDepthTextField;
+
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -86,14 +93,17 @@ public class MainActivity extends Activity {
         //create data lists
         depthEntries = new ArrayList<>();
         pressureEntries = new ArrayList<>();
+        endTitleEntries = new ArrayList<>();
 
         //create starting point
         depthEntries.add(new Entry(0, 0));
-        pressureEntries.add(new Entry(0, BASELINE_BP));
+        pressureEntries.add(new Entry(0, 0));
+        endTitleEntries.add(new Entry(0, 0));
 
         //create datasets
         LineDataSet depthDataSet = new LineDataSet(depthEntries, getString(R.string.depth_label));
         LineDataSet pressureDataSet = new LineDataSet(pressureEntries, getString(R.string.pressure_label));
+        final LineDataSet endTitleDataSet = new LineDataSet(endTitleEntries, getString(R.string.end_title_label));
 
         //format datasets
         depthDataSet.setAxisDependency(YAxis.AxisDependency.LEFT); //use left axis
@@ -101,16 +111,24 @@ public class MainActivity extends Activity {
         depthDataSet.setColor(Color.GREEN); //line is green
         depthDataSet.setLineWidth(5);
         depthDataSet.setDrawCircles(false); //don't show data points (just lines)
+
         pressureDataSet.setAxisDependency(YAxis.AxisDependency.LEFT);
         pressureDataSet.setDrawValues(false);
         pressureDataSet.setColor(Color.RED);
         pressureDataSet.setLineWidth(5);
         pressureDataSet.setDrawCircles(false);
 
+        endTitleDataSet.setAxisDependency(YAxis.AxisDependency.LEFT);
+        endTitleDataSet.setDrawValues(false);
+        endTitleDataSet.setColor(Color.CYAN);
+        endTitleDataSet.setLineWidth(5);
+        endTitleDataSet.setDrawCircles(false);
+
         // use the interface ILineDataSet for list of datasets
         List<ILineDataSet> dataSets = new ArrayList<ILineDataSet>();
         dataSets.add(depthDataSet);
         dataSets.add(pressureDataSet);
+        dataSets.add(endTitleDataSet);
 
         //attach datasets to chart
         LineData data = new LineData(dataSets);
@@ -155,7 +173,7 @@ public class MainActivity extends Activity {
             public void onProgressChanged(SeekBar seekBar, int value, boolean changeFromUser) {
                 value += MINIMUM_VISIBLE_TIME_RANGE; //slider values go from 0 to [(max time range) - (min time range)]
                 visibleTimeRange = value;
-                reformatAxis(time);
+                reformatAxis(time, 0);
             }
 
             @Override
@@ -186,7 +204,7 @@ public class MainActivity extends Activity {
                         int endOfLineIndex = recDataString.indexOf("~"); // determine the end-of-line
                         if(endOfLineIndex > 0) { // make sure there is data before ~
                             String dataInPrint = recDataString.substring(startOfLineIndex, endOfLineIndex); // extract string
-                            Log.i("MainActivity", "bluetoothIn.handleMessage(): " + dataInPrint);
+                            //Log.i("MainActivity", "bluetoothIn.handleMessage(): " + dataInPrint);
 
                             processBTMessage(dataInPrint);
 
@@ -201,6 +219,62 @@ public class MainActivity extends Activity {
         btAdapter = BluetoothAdapter.getDefaultAdapter();       // get Bluetooth adapter
         checkBTState();
 
+        bloodPressureMonitor = new BloodPressureMonitor() {
+            @Override
+            public void plotDepth(float time, int depth) {
+                depthEntries.add(new Entry(time, depth));
+            }
+
+            @Override
+            public void plotPressure(float time, float pressure) {
+                pressureEntries.add(new Entry(time, pressure));
+
+            }
+
+            @Override
+            public void plotDepthAndPressure(float time, int depth, float pressure) {
+                plotDepth(time, depth);
+                plotPressure(time, pressure);
+                reformatAxis(time, pressure);
+                runOnUiThread(new Runnable() {
+
+                    @Override
+                    public void run() {
+                        updateAvgDepthIndicator();
+                        updateBPMIndicator();
+                        updateAvgLeaningDepthIndicator();
+                    }
+                });
+
+
+            }
+        };
+
+        endTitleMonitor = new EndTitleMonitor() {
+            @Override
+            public void plotEndTitle(float time, float value) {
+                endTitleEntries.add(new Entry(time, value));
+            }
+        };
+
+        bpmTextField = (EditText) findViewById(R.id.bpm_textfield);
+        avgDepthTextField = (EditText) findViewById(R.id.avgdepth_textfield);
+        avgLeaningDepthTextField = (EditText) findViewById(R.id.avgleaningdepth_textfield);
+
+
+
+    }
+
+    public void updateBPMIndicator() {
+        bpmTextField.setText(String.valueOf((int)BPUtil.getBPM()));
+    }
+
+    public void updateAvgDepthIndicator() {
+        avgDepthTextField.setText(String.valueOf((int)BPUtil.getAvgDepth()));
+    }
+
+    public void updateAvgLeaningDepthIndicator() {
+        avgLeaningDepthTextField.setText(String.valueOf((int)BPUtil.getAvgLeaningDepth()));
     }
 
     /**
@@ -219,9 +293,9 @@ public class MainActivity extends Activity {
 
                 //create starting point
                 depthEntries.add(new Entry(0, 0));
-                pressureEntries.add(new Entry(0, BASELINE_BP));
+                pressureEntries.add(new Entry(0, 0));
 
-                reformatAxis(0); //reset x axis
+                reformatAxis(0,0); //reset x axis
 
                 initialized = true; //start collecting new data points
 
@@ -236,28 +310,25 @@ public class MainActivity extends Activity {
      * @param msg the bluetooth message string of the form #TIME:DEPTH,PRESSURE
      */
     private void processBTMessage(String msg) {
-        //extract time, depth, and pressure from string bluetooth message
+        //extract time and depth from string bluetooth message
         int timeEnd = msg.indexOf(":");
-        int depthEnd = msg.indexOf(",");
+
         String timeStr = msg.substring(1, timeEnd);
-        String depthStr = msg.substring(timeEnd + 1, depthEnd);
-        String pressureStr = msg.substring(depthEnd + 1);
+        String depthStr = msg.substring(timeEnd + 1);
 
-        time = Long.valueOf(timeStr) / 1000f; //convert from millis to seconds and update global time variable
+        long time = Long.valueOf(timeStr);
         int depth = Integer.valueOf(depthStr);
-        float pressure = Float.valueOf(pressureStr);
 
-        //add new data points for depth and pressure
-        depthEntries.add(new Entry(time, depth));
-        pressureEntries.add(new Entry(time, pressure));
+        Log.i(TAG, depth + ", " + time);
+
+        bloodPressureMonitor.updateDepth(time, depth);
+
 
         //discard data points for times that can no longer be displayed (> 60sec)
-        deleteOldDataPoints();
+        //deleteOldDataPoints();
 
         //log for debugging
-        Log.i("MainActivity", "processBTMessage: message=\"" + msg + "\"\t,time=" + time + "\t,depth=" + depth + "\t,pressure=" + pressure);
-
-        reformatAxis(time);
+        //Log.i("MainActivity", "processBTMessage: message=\"" + msg + "\"\t,depth=" + depth);
 
     }
 
@@ -278,14 +349,20 @@ public class MainActivity extends Activity {
      * visibleTimeRange = 10seconds and TIME_PADDING = 2seconds. The x axis range will be from time-8
      * to time+2.
      * @param time last logged time
+     * @param value the depth or pressure value to fit inside the graph
      */
-    private void reformatAxis(float time) {
+    private void reformatAxis(float time, float value) {
         if(time > visibleTimeRange - TIME_PADDING) {
             xAxis.setAxisMaximum(time + TIME_PADDING);
             xAxis.setAxisMinimum(time + TIME_PADDING - visibleTimeRange);
         } else {
             xAxis.setAxisMaximum(visibleTimeRange);
             xAxis.setAxisMinimum(0);
+        }
+
+        if((int)(value * 1.1) > MAXIMUM_Y) {
+            MAXIMUM_Y = (int)(value * 1.1);
+            yAxis.setAxisMaximum(MAXIMUM_Y);
         }
 
         chart.fitScreen(); //set visible boundaries to max
@@ -350,6 +427,8 @@ public class MainActivity extends Activity {
             //Don't leave Bluetooth sockets open when leaving activity
             btSocket.close();
             initialized = false; //stop collecting data points
+            endTitleMonitor.release();
+            bloodPressureMonitor.release();
         } catch (IOException e2) {
             //insert code to deal with this
         }

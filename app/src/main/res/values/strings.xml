@@ -1,7 +1,11 @@
 <resources>
     <string name="app_name">CPR Dummy</string>
-    <string name="depth_label">Depth (cm)</string>
+    <string name="depth_label">Depth (mm)</string>
     <string name="pressure_label">Pressure (mmHg)</string>
-    <string name="chart_description">CPR Simulation Dummy</string>
+    <string name="chart_description">CPR Simulation Manikin</string>
     <string name="none_paired">No devices have been paired</string>
+    <string name="BPM">BPM</string>
+    <string name="AvgDepth">Depth</string>
+    <string name="end_title_label">End Title</string>
+    <string name="AvgLeaningDepth">Leaning</string>
 </resources>

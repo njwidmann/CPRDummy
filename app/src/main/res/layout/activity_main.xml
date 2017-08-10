@@ -24,12 +24,53 @@
             android:layout_height="wrap_content"
             android:text="Refresh"
             android:id="@+id/refresh_button"/>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:text="@string/BPM"
+            android:labelFor="@+id/bpm_textfield"
+            android:textColor="@color/white"/>
+        <EditText
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:id="@+id/bpm_textfield"
+            android:editable="false"
+            android:inputType="none"
+            android:textColor="@color/white"/>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:text="@string/AvgDepth"
+            android:labelFor="@+id/avgdepth_textfield"
+            android:textColor="@color/white"/>
+        <EditText
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:id="@+id/avgdepth_textfield"
+            android:editable="false"
+            android:inputType="none"
+            android:textColor="@color/white"/>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:text="@string/AvgLeaningDepth"
+            android:labelFor="@+id/avgleaningdepth_textfield"
+            android:textColor="@color/white"/>
+        <EditText
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:id="@+id/avgleaningdepth_textfield"
+            android:editable="false"
+            android:inputType="none"
+            android:textColor="@color/white"/>
         <SeekBar
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:layout_gravity="center_vertical"
             android:max="55"
             android:id="@+id/slider"/>
+
+
     </LinearLayout>
 
     <com.github.mikephil.charting.charts.LineChart
