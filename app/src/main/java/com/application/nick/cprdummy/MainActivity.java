@@ -74,7 +74,6 @@ public class MainActivity extends Activity {
     private boolean initialized;
 
     private BloodPressureMonitor bloodPressureMonitor;
-    private EndTitleMonitor endTitleMonitor;
 
     private EditText bpmTextField, avgDepthTextField, avgLeaningDepthTextField;
 
@@ -232,10 +231,19 @@ public class MainActivity extends Activity {
             }
 
             @Override
-            public void plotDepthAndPressure(float time, int depth, float pressure) {
+            public void plotEndTitle(float time, float endTitle) {
+                endTitleEntries.add(new Entry(time, endTitle));
+            }
+
+            @Override
+            public void plotAll(float time, int depth, float pressure, float endTitle) {
                 plotDepth(time, depth);
                 plotPressure(time, pressure);
-                reformatAxis(time, pressure);
+                plotEndTitle(time, endTitle);
+
+                deleteOldDataPoints(); //delete data points earlier than max visible time range
+                reformatAxis(time, pressure); //adjust axes if necessary to include new points
+
                 runOnUiThread(new Runnable() {
 
                     @Override
@@ -245,23 +253,12 @@ public class MainActivity extends Activity {
                         updateAvgLeaningDepthIndicator();
                     }
                 });
-
-
-            }
-        };
-
-        endTitleMonitor = new EndTitleMonitor() {
-            @Override
-            public void plotEndTitle(float time, float value) {
-                endTitleEntries.add(new Entry(time, value));
             }
         };
 
         bpmTextField = (EditText) findViewById(R.id.bpm_textfield);
         avgDepthTextField = (EditText) findViewById(R.id.avgdepth_textfield);
         avgLeaningDepthTextField = (EditText) findViewById(R.id.avgleaningdepth_textfield);
-
-
 
     }
 
@@ -323,13 +320,6 @@ public class MainActivity extends Activity {
 
         bloodPressureMonitor.updateDepth(time, depth);
 
-
-        //discard data points for times that can no longer be displayed (> 60sec)
-        //deleteOldDataPoints();
-
-        //log for debugging
-        //Log.i("MainActivity", "processBTMessage: message=\"" + msg + "\"\t,depth=" + depth);
-
     }
 
     /**
@@ -340,6 +330,7 @@ public class MainActivity extends Activity {
         while(depthEntries.get(0).getX() < (time - MAXIMUM_VISIBLE_TIME_RANGE)) {
             depthEntries.remove(0);
             pressureEntries.remove(0);
+            endTitleEntries.remove(0);
         }
     }
 
@@ -427,7 +418,6 @@ public class MainActivity extends Activity {
             //Don't leave Bluetooth sockets open when leaving activity
             btSocket.close();
             initialized = false; //stop collecting data points
-            endTitleMonitor.release();
             bloodPressureMonitor.release();
         } catch (IOException e2) {
             //insert code to deal with this

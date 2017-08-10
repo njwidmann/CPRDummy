@@ -65,6 +65,7 @@ public abstract class BloodPressureMonitor {
 
                         BPUtil.DEPTH_DIRECTION direction = BPUtil.getDepthDirection(time, depth);
                         float pressure = BPUtil.getPressure(depth, time, direction);
+                        float endTitle = BPUtil.getEndTitle(time);
                         if(direction == BPUtil.DEPTH_DIRECTION.INCREASING) {
                             Log.i(TAG, "Time = " + time + "; Depth = " + depth + "; Direction = INCREASING; BPM = " + BPUtil.getBPM() + "; AvgDepth = " + BPUtil.getAvgDepth() + "; Pressure = " + pressure + "; SBP = " + BPUtil.getSBP() + "; DBP = " + BPUtil.getDBP());
                         } else if(direction == BPUtil.DEPTH_DIRECTION.DECREASING) {
@@ -73,7 +74,7 @@ public abstract class BloodPressureMonitor {
                             Log.i(TAG, "Time = " + time + "; Depth = " + depth + "; Direction = STRAIGHT; BPM = " + BPUtil.getBPM() + "; AvgDepth = " + BPUtil.getAvgDepth() + "; Pressure = " + pressure + "; SBP = " + BPUtil.getSBP() + "; DBP = " + BPUtil.getDBP());
                         }
 
-                        plotDepthAndPressure((time - startTime)/1000f, depth, pressure);
+                        plotAll((time - startTime)/1000f, depth, pressure, endTitle);
 
                     } catch(Exception ex) {
                         ex.printStackTrace();
@@ -86,5 +87,6 @@ public abstract class BloodPressureMonitor {
 
     public abstract void plotDepth(float time, int depth);
     public abstract void plotPressure(float time, float pressure);
-    public abstract void plotDepthAndPressure(float time, int depth, float pressure);
+    public abstract void plotEndTitle(float time, float endTitle);
+    public abstract void plotAll(float time, int depth, float pressure, float endTitle);
 }

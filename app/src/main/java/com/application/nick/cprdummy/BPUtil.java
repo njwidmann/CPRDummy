@@ -28,6 +28,7 @@ public class BPUtil {
     private static long lastPeakTime = 0;
     private static float compressionStartPressure = 0;
     private static float avgLeaningDepth = 0;
+    private static long lastCompressionEndTime = 0;
 
     private static float calculateDBP(float bpm, float depth) {
         dbp = (float) DBPCalculator.getDBP(bpm, depth);
@@ -69,6 +70,10 @@ public class BPUtil {
         return avgDepth;
     }
 
+    public static float getEndTitle(long time) {
+        return EndTitleCalculator.getEndTitle(time);
+    }
+
     public static boolean compressionStarted = false;
 
     private static void handleCompressionStart(int depth, long time) {
@@ -91,6 +96,8 @@ public class BPUtil {
         avgLeaningDepth = LeaningCalculator.registerLeaningDepth(depth);
 
         calculateDBP(bpm, avgDepth);
+
+        lastCompressionEndTime = time;
     }
 
     private static void handlePeakCompression(int depth, long time) {
@@ -113,10 +120,41 @@ public class BPUtil {
         previousDirection = direction;
     }
 
+    private static class EndTitleCalculator {
+        private static final int HIGH_VALUE = 30;
+        private static final int LOW_VALUE = 0;
+        private static final long HIGH_TIME = 2000L;
+        private static final long LOW_TIME = 1000L;
+
+        private static long cycleStartTime = 0;
+
+        private static boolean low = true;
+        private static boolean high = false;
+
+        public static float getEndTitle(long currentTime) {
+            //TODO adjust highs based on BPM and AvgDepth
+
+            //handle breathing cycle changes
+            if (low && currentTime - cycleStartTime > LOW_TIME) {
+                low = false;
+                high = true;
+                cycleStartTime = currentTime;
+            } else if (high && currentTime - cycleStartTime > HIGH_TIME) {
+                high = false;
+                low = true;
+                cycleStartTime = currentTime;
+            }
+            if (low) {
+                return LOW_VALUE;
+            } else {
+                return HIGH_VALUE;
+            }
+        }
+    }
+
     private static class AvgDepthCalculator {
         private static final int MAX_DEPTH = 65;
         private static final int MIN_DEPTH = 5;
-
 
         private static final int LOGSIZE = 3;
 
@@ -241,7 +279,6 @@ public class BPUtil {
         private static final Long MAX_LONG_VALUE = 2147483647L;
 
         private static ArrayList<Long> compressionStartTimes = new ArrayList<>();
-
 
         static {
             //we init log with ridiculously long compression times so that BPM is essentially 0 at start
