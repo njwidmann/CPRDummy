@@ -1,12 +1,14 @@
 const int pin_in1 = 5;
 const int pin_in2 = 7;
 
-const float area_out = .00002; //m^2
-const float area_chamber_1 = 0.01; //m^3 - cross sectional area of the piston-cylinder (chamber 1)
-const float initial_height_chamber_2 = .04; //m
-const float spring_constant = 5000; // N/m
-const float area_chamber_2 = .01; //m^2
-const float density = 1000; // kg/m^3
+//Most of these constants are very arbitrary in order to achieve the desired BP performance
+const float area_out = .0001;
+const float area_chamber_1 = 0.1; //cross sectional area of the piston-cylinder (chamber 1)
+const float initial_height_chamber_2 = .04; 
+const float spring_constant = 10000; 
+const float area_chamber_2 = .01; 
+const float density = 10000;
+const float baseline_bp = 30;
 
 //used for serial output
 const String comma = ",";
@@ -24,8 +26,6 @@ void setup() {
   pinMode(pin_in1, INPUT);
   pinMode(pin_in2, INPUT);
 
-  //Serial2.begin(9600);
-
   loopCounter = 0;
 }
 
@@ -38,14 +38,11 @@ int lastPositive = 0; //the last sensor to become positive. Either 1 or 2. 0 if 
 float volume2 = area_chamber_2 * initial_height_chamber_2;
 float pressure2 = 0;
 long previousTime = 0;
+long lastLoggedTime = 0;
 long refreshTime = 0;
-
-//int prevStateIn1 = 0;
-//int prevStateIn2 = 0;
 
 // the loop routine runs over and over again forever:
 void loop() {
-
 
   int prevDepth = depth; //save previous to find delta
   
@@ -86,18 +83,6 @@ void loop() {
     if(depth < 0) { //prevent gradual decrease in depth
       depth = 0;
     }
-
-    //log depth and pressure to console
-    float display_pressure = (pressure2 / 1000.0); //convert to kpa (guage)
-    //bluetooth
-    //Serial.print("#");
-    loopCounter++;
-    if(loopCounter % 2 == 0) { //only send bluetooth every other time to prevent lag
-      Serial.println(hashtag + previousTime + colon + depth + comma + display_pressure + squiggly);
-    }
-    //Serial.println(depth + comma + display_pressure);
-    //Serial.println("~");
-    
     
   //if both are positive and at least one just turned positive
   } else if(stateIn1 && stateIn2 && (in1Pos || in2Pos)) {
@@ -131,24 +116,38 @@ void loop() {
 
   //volume flow into chamber 2 is equal to the volume flow out of chamber 1
   float volumeFlowIn = deltaDepthMeters > 0 ? area_chamber_1 * deltaDepthMeters : 0;
-  float velocityOut = sqrt(2 * pressure2 / density); //bernoulli
+  float velocityOut = pow(2 * pressure2 / density , 1.5); //modified bernoulli (normally sqrt but instead ^1.5) editted for desired BP performance
   float volumeFlowOut = velocityOut * area_out * deltaT; //dV = v*A*dt
   volume2 = volume2 + volumeFlowIn - volumeFlowOut;
   float springDisplacement = volume2 / area_chamber_2 - initial_height_chamber_2; //V2 = A2(H2 + x)
   float springForce = spring_constant * springDisplacement; //F = kx
   pressure2 = springForce / area_chamber_2; //P = F/A
 
-
+  if(pressure2 < 0) {
+    pressure2 = 0;
+  }
+  
+  //log every 100 millis
+  if(previousTime - 100 > lastLoggedTime) {
+    //log depth and pressure to console
+    float display_pressure = (pressure2 / 1000.0); //convert to kpa (guage)
+    display_pressure += baseline_bp; //absolute
+    Serial.println(hashtag + previousTime + colon + depth + comma + display_pressure + squiggly);
+    lastLoggedTime = previousTime;
+  }
+  
   //handle refresh
   if(Serial.available()) {
     delay(10);
     char c = Serial.read();
     if(c == 'R') {
       volume2 = area_chamber_2 * initial_height_chamber_2;
-      pressure2 = 0; 
+      pressure2 = 0;
+      depth = 0; 
 
       refreshTime += currentTime;
       previousTime = 0;
+      lastLoggedTime = 0;
     }
   }
 
