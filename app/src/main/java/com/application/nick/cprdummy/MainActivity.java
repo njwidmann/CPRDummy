@@ -1,14 +1,9 @@
 package com.application.nick.cprdummy;
 
 
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.io.Reader;
-import java.io.StringWriter;
-import java.io.Writer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -263,15 +258,15 @@ public class MainActivity extends Activity {
     }
 
     public void updateBPMIndicator() {
-        bpmTextField.setText(String.valueOf((int)BPUtil.getBPM()));
+        bpmTextField.setText(String.valueOf((int) bloodPressureMonitor.getBPM()));
     }
 
     public void updateAvgDepthIndicator() {
-        avgDepthTextField.setText(String.valueOf((int)BPUtil.getAvgDepth()));
+        avgDepthTextField.setText(String.valueOf((int)bloodPressureMonitor.getAvgDepth()));
     }
 
     public void updateAvgLeaningDepthIndicator() {
-        avgLeaningDepthTextField.setText(String.valueOf((int)BPUtil.getAvgLeaningDepth()));
+        avgLeaningDepthTextField.setText(String.valueOf((int)bloodPressureMonitor.getAvgLeaningDepth()));
     }
 
     /**
@@ -279,27 +274,27 @@ public class MainActivity extends Activity {
      */
     private void refreshChart() {
 
-        mConnectedThread.write("R"); //tell arduino to reset time, depth, and pressure
+        bloodPressureMonitor.refresh();
 
-        //pause refresh execution until arduino receives command
-        Handler handler = new Handler();
-        Runnable r = new Runnable() {
-            public void run() {
-                depthEntries.clear();
-                pressureEntries.clear();
+        depthEntries.clear();
+        pressureEntries.clear();
+        endTitleEntries.clear();
 
-                //create starting point
-                depthEntries.add(new Entry(0, 0));
-                pressureEntries.add(new Entry(0, 0));
+        bpmTextField.setText(String.valueOf(0));
+        avgDepthTextField.setText(String.valueOf(0));
+        avgLeaningDepthTextField.setText(String.valueOf(0));
 
-                reformatAxis(0,0); //reset x axis
+        //create starting points
+        depthEntries.add(new Entry(0, 0));
+        pressureEntries.add(new Entry(0, 0));
+        endTitleEntries.add(new Entry(0, 0));
 
-                initialized = true; //start collecting new data points
+        reformatAxis(0,0); //reset axis
 
-                //slider.setProgress(DEFAULT_VISIBLE_TIME_RANGE - MINIMUM_VISIBLE_TIME_RANGE); //uncomment to reset x scale & slider
-            }
-        };
-        handler.postDelayed(r, 100);
+        initialized = true; //start collecting new data points
+
+        //slider.setProgress(DEFAULT_VISIBLE_TIME_RANGE - MINIMUM_VISIBLE_TIME_RANGE); //uncomment to reset x scale & slider
+
     }
 
     /**

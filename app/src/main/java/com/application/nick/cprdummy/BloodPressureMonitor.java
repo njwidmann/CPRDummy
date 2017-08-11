@@ -2,6 +2,8 @@ package com.application.nick.cprdummy;
 
 import android.util.Log;
 
+import com.application.nick.cprdummy.BPUtil.BPManager;
+
 import java.util.ArrayList;
 
 /**
@@ -12,16 +14,20 @@ public abstract class BloodPressureMonitor {
 
     private static final String TAG = "BloodPressureMonitor";
 
-    private static boolean RUNNING = true;
+    private boolean RUNNING = true;
 
-    private static ArrayList<Integer> depthLog = new ArrayList<>();
-    private static ArrayList<Long> timeLog = new ArrayList<>();
-    private static long startTime = -1L;
-    private static long lastLoggedSystemTime;
-    private static long lastLoggedTime = 0;
-    private static int lastLoggedDepth;
+    private ArrayList<Integer> depthLog = new ArrayList<>();
+    private ArrayList<Long> timeLog = new ArrayList<>();
+    private long startTime = -1L;
+    private long lastLoggedSystemTime;
+    private long lastLoggedTime = 0;
+    private int lastLoggedDepth;
+
+    BPManager bpManager;
 
     public BloodPressureMonitor() {
+
+        bpManager = new BPManager();
 
         new UpdateThread().start();
     }
@@ -33,18 +39,28 @@ public abstract class BloodPressureMonitor {
             lastLoggedDepth = currentDepth;
             if (startTime < 0) {
                 startTime = currentTime;
+                lastLoggedSystemTime = getCurrentTime();
             }
             depthLog.add(currentDepth);
             timeLog.add(currentTime);
         }
     }
 
-    public static long getStartTime() {
+    public float getBPM() { return bpManager.getBPM(); }
+    public float getAvgDepth() { return bpManager.getAvgDepth(); }
+    public float getAvgLeaningDepth() { return bpManager.getAvgLeaningDepth(); }
+
+    private long getStartTime() {
         return startTime;
     }
 
     private long getCurrentTime() {
         return System.nanoTime() / 1000000;
+    }
+
+    public void refresh() {
+        startTime = -1L;
+        bpManager = new BPManager();
     }
 
     public void release() {
@@ -64,15 +80,15 @@ public abstract class BloodPressureMonitor {
                         int depth = depthLog.remove(0);
                         long time = timeLog.remove(0);
 
-                        BPUtil.DEPTH_DIRECTION direction = BPUtil.getDepthDirection(time, depth);
-                        float pressure = BPUtil.getPressure(depth, time, direction);
-                        float endTitle = BPUtil.getEndTitle(time);
-                        if(direction == BPUtil.DEPTH_DIRECTION.INCREASING) {
-                            Log.i(TAG, "Time = " + time + "; Depth = " + depth + "; Direction = INCREASING; BPM = " + BPUtil.getBPM() + "; AvgDepth = " + BPUtil.getAvgDepth() + "; Pressure = " + pressure + "; SBP = " + BPUtil.getSBP() + "; DBP = " + BPUtil.getDBP());
-                        } else if(direction == BPUtil.DEPTH_DIRECTION.DECREASING) {
-                            Log.i(TAG, "Time = " + time + "; Depth = " + depth + "; Direction = DECREASING; BPM = " + BPUtil.getBPM() + "; AvgDepth = " + BPUtil.getAvgDepth() + "; Pressure = " + pressure + "; SBP = " + BPUtil.getSBP() + "; DBP = " + BPUtil.getDBP());
+                        BPManager.DEPTH_DIRECTION direction = bpManager.getDepthDirection(time, depth);
+                        float pressure = bpManager.getPressure(depth, time, direction);
+                        float endTitle = bpManager.getEndTitle(time);
+                        if(direction == BPManager.DEPTH_DIRECTION.INCREASING) {
+                            Log.i(TAG, "Time = " + time + "; Depth = " + depth + "; Direction = INCREASING; BPM = " + bpManager.getBPM() + "; AvgDepth = " + bpManager.getAvgDepth() + "; Pressure = " + pressure + "; SBP = " + bpManager.getSBP() + "; DBP = " + bpManager.getDBP());
+                        } else if(direction == BPManager.DEPTH_DIRECTION.DECREASING) {
+                            Log.i(TAG, "Time = " + time + "; Depth = " + depth + "; Direction = DECREASING; BPM = " + bpManager.getBPM() + "; AvgDepth = " + bpManager.getAvgDepth() + "; Pressure = " + pressure + "; SBP = " + bpManager.getSBP() + "; DBP = " + bpManager.getDBP());
                         } else {
-                            Log.i(TAG, "Time = " + time + "; Depth = " + depth + "; Direction = STRAIGHT; BPM = " + BPUtil.getBPM() + "; AvgDepth = " + BPUtil.getAvgDepth() + "; Pressure = " + pressure + "; SBP = " + BPUtil.getSBP() + "; DBP = " + BPUtil.getDBP());
+                            Log.i(TAG, "Time = " + time + "; Depth = " + depth + "; Direction = STRAIGHT; BPM = " + bpManager.getBPM() + "; AvgDepth = " + bpManager.getAvgDepth() + "; Pressure = " + pressure + "; SBP = " + bpManager.getSBP() + "; DBP = " + bpManager.getDBP());
                         }
 
                         plotAll((time - startTime)/1000f, depth, pressure, endTitle);
