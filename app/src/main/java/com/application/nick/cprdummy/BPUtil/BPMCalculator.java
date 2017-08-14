@@ -40,11 +40,6 @@ public class BPMCalculator {
             return 0; //we need at least 2 values in the log to know the time of at least 1 compression cycle
         }
         bpm = 60000f / calculateAverageCompressionTime();
-        /*if(bpm > MAX_BPM) {
-            bpm = MAX_BPM;
-        } else if(bpm < MIN_BPM) {
-            bpm = MIN_BPM;
-        }*/
         return bpm;
     }
 

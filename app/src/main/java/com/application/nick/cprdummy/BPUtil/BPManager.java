@@ -25,7 +25,8 @@ public class BPManager {
     private static final int STRAIGHT_TIMEOUT = 20; //after straight 20x in a row, we are going to reset BPM and AvgDepth.
 
     private float bpm;
-    private float avgDepth;
+    private float avgRelDepth;
+    private float avgAbsDepth;
     private int straightCounter;
     private float sbp;
     private float dbp;
@@ -45,7 +46,8 @@ public class BPManager {
         self = this;
 
         bpm = 0;
-        avgDepth = 0;
+        avgRelDepth = 0;
+        avgAbsDepth = 0;
         sbp = 0;
         dbp = 0;
         avgLeaningDepth = 0;
@@ -65,19 +67,20 @@ public class BPManager {
                 Log.i(TAG, "COMPRESSION START");
                 bpmCalculator.registerCompressionStart(time);
                 avgDepthCalculator.registerCompressionStart(depth);
-                calculateSBP(bpm, avgDepth);
-                bpCalculator.updateCompressionStartValues(depth, avgDepth, sbp, dbp);
+                calculateSBP(bpm, avgRelDepth);
+                bpCalculator.updateCompressionStartValues(depth, avgRelDepth, sbp, dbp);
             }
 
             @Override
             public void handleCompressionEnd(int depth, long time) {
                 Log.i(TAG, "COMPRESSION END");
                 bpm = bpmCalculator.calculateBPM();
-                avgDepth = avgDepthCalculator.calculateAvgCompressionDepth();
+                avgRelDepth = avgDepthCalculator.calculateAvgRelativeCompressionDepth();
+                avgAbsDepth = avgDepthCalculator.calculateAvgAbsoluteCompressionDepth();
 
                 avgLeaningDepth = leaningCalculator.registerLeaningDepth(depth);
 
-                calculateDBP(bpm, avgDepth);
+                calculateDBP(bpm, avgRelDepth);
             }
 
             @Override
@@ -96,7 +99,8 @@ public class BPManager {
         bpmCalculator.refreshBPM();
         bpm = 0;
         avgDepthCalculator.refreshAvgDepth();
-        avgDepth = 0;
+        avgRelDepth = 0;
+        avgAbsDepth = 0;
         avgLeaningDepth = leaningCalculator.setLeaningToLatestValue();
         sbp = 0;
         dbp = 0;
@@ -147,8 +151,11 @@ public class BPManager {
         return leaningCalculator.adjustPressureForLeaning(pressure);
     }
 
-    public float getAvgDepth() {
-        return avgDepth;
+    public float getAvgRelativeDepth() {
+        return avgRelDepth;
+    }
+    public float getAvgAbsoluteDepth() {
+        return avgAbsDepth;
     }
 
     public float getEndTitle(long time) {

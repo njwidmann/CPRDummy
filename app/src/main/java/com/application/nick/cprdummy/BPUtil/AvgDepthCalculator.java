@@ -1,7 +1,5 @@
 package com.application.nick.cprdummy.BPUtil;
 
-import android.util.Log;
-
 import java.util.ArrayList;
 
 /**
@@ -13,23 +11,19 @@ public class AvgDepthCalculator {
     private static final int LOGSIZE = 3; //number of last depths to average
 
     private ArrayList<Integer> compressionStartDepths;
-    private ArrayList<Integer> compressionEndDepths;
+    private ArrayList<Integer> compressionPeakDepths;
 
-    private float avgDepth;
+    private float avgRelDepth, avgAbsDepth;
 
     public AvgDepthCalculator() {
         compressionStartDepths = new ArrayList<>();
-        compressionEndDepths = new ArrayList<>();
-        //for(int i = 0; i < LOGSIZE; i++) {
-        //    compressionStartDepths.add(0);
-        //    compressionEndDepths.add(0);
-        //}
+        compressionPeakDepths = new ArrayList<>();
 
-        avgDepth = 0;
+        avgRelDepth = 0;
+        avgAbsDepth = 0;
     }
 
     public int getLastStartDepth() {
-        //return compressionStartDepths.get(LOGSIZE - 1);
         return compressionStartDepths.get(compressionStartDepths.size() - 1);
     }
 
@@ -41,40 +35,46 @@ public class AvgDepthCalculator {
     }
 
     public void registerCompressionPeak(int depth) {
-        compressionEndDepths.add(depth);
-        if(compressionEndDepths.size() > LOGSIZE) {
-            compressionEndDepths.remove(0);
+        compressionPeakDepths.add(depth);
+        if(compressionPeakDepths.size() > LOGSIZE) {
+            compressionPeakDepths.remove(0);
         }
     }
 
     /**
-     * averages last LOGSIZE depths to return average depth
-     * @return avg depth
+     * averages last LOGSIZE depths to return average relative depth
+     * @return avg relative depth
      */
-    public float calculateAvgCompressionDepth() {
-        //if(compressionEndDepths.size() < LOGSIZE) {
-        if(compressionEndDepths.size() < 1) {
+    public float calculateAvgRelativeCompressionDepth() {
+        if(compressionPeakDepths.size() < 1) {
             return 0; //We can't average if there are no values
         }
         int totalDepth = 0;
-        //for(int i = 0; i < LOGSIZE; i++) {
         for(int i = 0; i < compressionStartDepths.size(); i++) {
-            long depth = compressionEndDepths.get(i) - compressionStartDepths.get(i);
+            long depth = compressionPeakDepths.get(i) - compressionStartDepths.get(i);
             totalDepth += depth;
         }
-        avgDepth = (float) totalDepth / compressionEndDepths.size();
+        avgRelDepth = (float) totalDepth / compressionPeakDepths.size();
 
-        /*if(avgDepth > MAX_DEPTH) {
-            avgDepth = MAX_DEPTH;
-        } else if(avgDepth < MIN_DEPTH) {
-            avgDepth = MIN_DEPTH;
-        }*/
+        return avgRelDepth;
+    }
 
-        return avgDepth;
+    public float calculateAvgAbsoluteCompressionDepth() {
+        if(compressionPeakDepths.size() < 1) {
+            return 0; //We can't average if there are no values
+        }
+        int totalDepth = 0;
+        for(int i = 0; i < compressionPeakDepths.size(); i++) {
+            long depth = compressionPeakDepths.get(i);
+            totalDepth += depth;
+        }
+        avgAbsDepth = (float) totalDepth / compressionPeakDepths.size();
+
+        return avgAbsDepth;
     }
 
     public void refreshAvgDepth() {
         compressionStartDepths.clear();
-        compressionEndDepths.clear();
+        compressionPeakDepths.clear();
     }
 }

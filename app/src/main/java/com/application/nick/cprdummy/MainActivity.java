@@ -15,21 +15,25 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Message;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.SeekBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
+import com.github.mikephil.charting.charts.BarChart;
 import com.github.mikephil.charting.charts.LineChart;
 import com.github.mikephil.charting.components.Description;
 import com.github.mikephil.charting.components.XAxis;
 import com.github.mikephil.charting.components.YAxis;
+import com.github.mikephil.charting.data.BarData;
+import com.github.mikephil.charting.data.BarDataSet;
+import com.github.mikephil.charting.data.BarEntry;
 import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.data.LineData;
 import com.github.mikephil.charting.data.LineDataSet;
-import com.github.mikephil.charting.interfaces.datasets.ILineDataSet;
 
 public class MainActivity extends Activity {
 
@@ -51,15 +55,19 @@ public class MainActivity extends Activity {
     private static final int MINIMUM_VISIBLE_TIME_RANGE = 5;
     private static final int MAXIMUM_VISIBLE_TIME_RANGE = 60;
     private static final int TIME_PADDING = 2;
-    private static int MAXIMUM_Y = 145;
+    private static int MAXIMUM_Y_BP = 145;
+    private static final int MAXIMUM_Y_END_TITLE = 50;
+    private static final int MAXIMUM_Y_DEPTH = 80;
 
     // String for MAC address
     private static String address;
 
-    LineChart chart;
-    XAxis xAxis;
-    YAxis yAxis;
-    List<Entry> depthEntries, pressureEntries, endTitleEntries;
+    LineChart chartBP, chartEndTitle;
+    BarChart chartDepth;
+    XAxis xAxisBP, xAxisEndTitle, xAxisDepth;
+    YAxis yAxisBP, yAxisEndTitle, yAxisDepth;
+    List<Entry> entriesBP, entriesEndTitle;
+    List<BarEntry> entriesDepth;
 
     SeekBar slider;
 
@@ -68,9 +76,9 @@ public class MainActivity extends Activity {
 
     private boolean initialized;
 
-    private BloodPressureMonitor bloodPressureMonitor;
+    private BPMonitor bpMonitor;
 
-    private EditText bpmTextField, avgDepthTextField, avgLeaningDepthTextField;
+    private TextView sbpdbpTextField, bpmTextField, avgDepthTextField, avgLeaningDepthTextField;
 
 
     @Override
@@ -81,76 +89,128 @@ public class MainActivity extends Activity {
 
         visibleTimeRange = DEFAULT_VISIBLE_TIME_RANGE;
 
-        //init chart
-        chart = (LineChart) findViewById(R.id.chart);
+        //init line charts
+        chartBP = (LineChart) findViewById(R.id.chartBP);
+        chartEndTitle = (LineChart) findViewById(R.id.chartEndTitle);
+
+        //init bar chart for depth
+        chartDepth = (BarChart) findViewById(R.id.chartDepth);
 
         //create data lists
-        depthEntries = new ArrayList<>();
-        pressureEntries = new ArrayList<>();
-        endTitleEntries = new ArrayList<>();
+        entriesDepth = new ArrayList<>();
+        entriesBP = new ArrayList<>();
+        entriesEndTitle = new ArrayList<>();
 
         //create starting point
-        depthEntries.add(new Entry(0, 0));
-        pressureEntries.add(new Entry(0, 0));
-        endTitleEntries.add(new Entry(0, 0));
+        entriesDepth.add(new BarEntry(0,0));
+        entriesBP.add(new Entry(0, 0));
+        entriesEndTitle.add(new Entry(0, 0));
 
         //create datasets
-        LineDataSet depthDataSet = new LineDataSet(depthEntries, getString(R.string.depth_label));
-        LineDataSet pressureDataSet = new LineDataSet(pressureEntries, getString(R.string.pressure_label));
-        final LineDataSet endTitleDataSet = new LineDataSet(endTitleEntries, getString(R.string.end_title_label));
+        //LineDataSet depthDataSet = new LineDataSet(entriesDepth, getString(R.string.depth_label));
+        LineDataSet dataSetBP = new LineDataSet(entriesBP, getString(R.string.pressure_label));
+        LineDataSet dataSetEndTitle = new LineDataSet(entriesEndTitle, getString(R.string.end_title_label));
+        BarDataSet dataSetDepth = new BarDataSet(entriesDepth, getString(R.string.chart_description_depth));
 
         //format datasets
-        depthDataSet.setAxisDependency(YAxis.AxisDependency.LEFT); //use left axis
-        depthDataSet.setDrawValues(false); //no text labels for data points
-        depthDataSet.setColor(Color.GREEN); //line is green
-        depthDataSet.setLineWidth(5);
-        depthDataSet.setDrawCircles(false); //don't show data points (just lines)
+        dataSetDepth.setAxisDependency(YAxis.AxisDependency.LEFT); //use left axis
+        dataSetDepth.setDrawValues(false); //no text labels for data points
+        dataSetDepth.setColor(Color.GREEN); //bar is green
 
-        pressureDataSet.setAxisDependency(YAxis.AxisDependency.LEFT);
-        pressureDataSet.setDrawValues(false);
-        pressureDataSet.setColor(Color.RED);
-        pressureDataSet.setLineWidth(5);
-        pressureDataSet.setDrawCircles(false);
+        dataSetBP.setAxisDependency(YAxis.AxisDependency.LEFT);
+        dataSetBP.setDrawValues(false);
+        dataSetBP.setColor(Color.RED);
+        dataSetBP.setLineWidth(5);
+        dataSetBP.setDrawCircles(false);
 
-        endTitleDataSet.setAxisDependency(YAxis.AxisDependency.LEFT);
-        endTitleDataSet.setDrawValues(false);
-        endTitleDataSet.setColor(Color.CYAN);
-        endTitleDataSet.setLineWidth(5);
-        endTitleDataSet.setDrawCircles(false);
+        dataSetEndTitle.setAxisDependency(YAxis.AxisDependency.LEFT);
+        dataSetEndTitle.setDrawValues(false);
+        dataSetEndTitle.setColor(Color.CYAN);
+        dataSetEndTitle.setLineWidth(5);
+        dataSetEndTitle.setDrawCircles(false);
 
         // use the interface ILineDataSet for list of datasets
-        List<ILineDataSet> dataSets = new ArrayList<ILineDataSet>();
-        dataSets.add(depthDataSet);
-        dataSets.add(pressureDataSet);
-        dataSets.add(endTitleDataSet);
+        //List<ILineDataSet> dataSets = new ArrayList<ILineDataSet>();
+        //dataSets.add(depthDataSet);
+        //dataSets.add(dataSetBP);
+        //dataSets.add(dataSetEndTitle);
 
-        //attach datasets to chart
-        LineData data = new LineData(dataSets);
-        chart.setData(data);
+        //attach datasets to chartBP
+        LineData dataBP = new LineData(dataSetBP);
+        chartBP.setData(dataBP);
+
+        LineData dataEndTitle = new LineData(dataSetEndTitle);
+        chartEndTitle.setData(dataEndTitle);
+
+        BarData dataDepth = new BarData(dataSetDepth);
+        chartDepth.setData(dataDepth);
 
         //format axes
-        xAxis = chart.getXAxis();
-        xAxis.setPosition(XAxis.XAxisPosition.BOTTOM); //put x axis on the bottom of the chart
-        xAxis.setTextColor(Color.WHITE);
-        yAxis = chart.getAxisLeft(); //y axis is on the left
-        yAxis.setTextColor(Color.WHITE);
-        chart.getAxisRight().setEnabled(false); //no right side y axis
+        xAxisBP = chartBP.getXAxis();
+        //xAxisBP.setPosition(XAxis.XAxisPosition.BOTTOM); //put x axis on the bottom of the chartBP
+        //xAxisBP.setTextColor(Color.WHITE);
+        xAxisBP.setDrawLabels(false);
+        //xAxisBP.setEnabled(false);
+        yAxisBP = chartBP.getAxisLeft(); //y axis is on the left
+        yAxisBP.setTextColor(Color.WHITE);
+        chartBP.getAxisRight().setEnabled(false); //no right side y axis
+
+        xAxisEndTitle = chartEndTitle.getXAxis();
+        //xAxisEndTitle.setPosition(XAxis.XAxisPosition.BOTTOM); //put x axis on the bottom of the chartBP
+        //xAxisEndTitle.setTextColor(Color.WHITE);
+        xAxisEndTitle.setDrawLabels(false);
+        yAxisEndTitle = chartEndTitle.getAxisLeft(); //y axis is on the left
+        yAxisEndTitle.setTextColor(Color.WHITE);
+        yAxisEndTitle.setLabelCount(3);
+        chartEndTitle.getAxisRight().setEnabled(false); //no right side y axis
+
+        xAxisDepth = chartDepth.getXAxis();
+        //xAxisEndTitle.setPosition(XAxis.XAxisPosition.BOTTOM); //put x axis on the bottom of the chartBP
+        //xAxisEndTitle.setTextColor(Color.WHITE);
+        xAxisDepth.setDrawLabels(false);
+        yAxisDepth = chartDepth.getAxisLeft(); //y axis is on the left
+        yAxisDepth.setTextColor(Color.WHITE);
+        yAxisDepth.setLabelCount(5);
+        chartDepth.getAxisRight().setEnabled(false); //no right side y axis
 
         //format chart description and legend
-        Description chartDescrition = new Description();
-        chartDescrition.setText(getString(R.string.chart_description));
-        chartDescrition.setTextColor(Color.WHITE);
-        chart.setDescription(chartDescrition);
-        chart.getLegend().setTextColor(Color.WHITE);
+        Description chartDescritionBP = new Description();
+        chartDescritionBP.setText(getString(R.string.chart_description_BP));
+        chartDescritionBP.setTextColor(Color.WHITE);
+        chartBP.setDescription(chartDescritionBP);
+        chartBP.getLegend().setEnabled(false);//setTextColor(Color.WHITE);
+
+        Description chartDescritionEndTitle = new Description();
+        chartDescritionEndTitle.setText(getString(R.string.chart_description_end_title));
+        chartDescritionEndTitle.setTextColor(Color.WHITE);
+        chartEndTitle.setDescription(chartDescritionEndTitle);
+        chartEndTitle.getLegend().setEnabled(false);//setTextColor(Color.WHITE);
+
+        Description chartDescritionDepth = new Description();
+        chartDescritionDepth.setText(getString(R.string.chart_description_depth));
+        chartDescritionDepth.setTextColor(Color.WHITE);
+        chartDepth.setDescription(chartDescritionDepth);
+        chartDepth.getLegend().setEnabled(false);//setTextColor(Color.WHITE);
 
         //default axis boundaries
-        xAxis.setAxisMinimum(0);
-        xAxis.setAxisMaximum(visibleTimeRange);
-        yAxis.setAxisMinimum(0);
-        yAxis.setAxisMaximum(MAXIMUM_Y);
+        xAxisBP.setAxisMinimum(0);
+        xAxisBP.setAxisMaximum(visibleTimeRange);
+        yAxisBP.setAxisMinimum(0);
+        yAxisBP.setAxisMaximum(MAXIMUM_Y_BP);
+
+        xAxisEndTitle.setAxisMinimum(0);
+        xAxisEndTitle.setAxisMaximum(visibleTimeRange);
+        yAxisEndTitle.setAxisMinimum(0);
+        yAxisEndTitle.setAxisMaximum(MAXIMUM_Y_END_TITLE);
+
+        //xAxisDepth.setAxisMinimum(0);
+        //xAxisDepth.setAxisMaximum(visibleTimeRange);
+        yAxisDepth.setAxisMinimum(0);
+        yAxisDepth.setAxisMaximum(MAXIMUM_Y_DEPTH);
 
         //don't let user pinch to scale chart. This would get weird with real time data
-        chart.setScaleEnabled(false);
+        chartBP.setScaleEnabled(false);
+        chartEndTitle.setScaleEnabled(false);
 
         //button to refresh chart and clear all data
         final Button refreshButton = (Button)findViewById(R.id.refresh_button);
@@ -183,7 +243,7 @@ public class MainActivity extends Activity {
         slider.setProgress(DEFAULT_VISIBLE_TIME_RANGE - MINIMUM_VISIBLE_TIME_RANGE);
 
         bluetoothIn = new Handler() {
-            public void handleMessage(android.os.Message msg) {
+            public void handleMessage(Message msg) {
                 if (msg.what == handlerState) { //if message is what we want
                     String readMessage = (String) msg.obj; // msg.arg1 = bytes from connect thread
                     recDataString.append(readMessage); //keep appending to string until "~"
@@ -213,26 +273,26 @@ public class MainActivity extends Activity {
         btAdapter = BluetoothAdapter.getDefaultAdapter();       // get Bluetooth adapter
         checkBTState();
 
-        bloodPressureMonitor = new BloodPressureMonitor() {
+        bpMonitor = new BPMonitor() {
             @Override
-            public void plotDepth(float time, int depth) {
-                depthEntries.add(new Entry(time, depth));
+            public void plotDepth(int depth) {
+                entriesDepth.get(0).setY(depth);
             }
 
             @Override
             public void plotPressure(float time, float pressure) {
-                pressureEntries.add(new Entry(time, pressure));
+                entriesBP.add(new Entry(time, pressure));
 
             }
 
             @Override
             public void plotEndTitle(float time, float endTitle) {
-                endTitleEntries.add(new Entry(time, endTitle));
+                entriesEndTitle.add(new Entry(time, endTitle));
             }
 
             @Override
             public void plotAll(float time, int depth, float pressure, float endTitle) {
-                plotDepth(time, depth);
+                plotDepth(depth);
                 plotPressure(time, pressure);
                 plotEndTitle(time, endTitle);
 
@@ -246,27 +306,33 @@ public class MainActivity extends Activity {
                         updateAvgDepthIndicator();
                         updateBPMIndicator();
                         updateAvgLeaningDepthIndicator();
+                        updateSBPDBPIndicator();
                     }
                 });
             }
         };
 
-        bpmTextField = (EditText) findViewById(R.id.bpm_textfield);
-        avgDepthTextField = (EditText) findViewById(R.id.avgdepth_textfield);
-        avgLeaningDepthTextField = (EditText) findViewById(R.id.avgleaningdepth_textfield);
+        sbpdbpTextField = (TextView) findViewById(R.id.sbpdbp_textfield);
+        bpmTextField = (TextView) findViewById(R.id.bpm_textfield);
+        avgDepthTextField = (TextView) findViewById(R.id.avgdepth_textfield);
+        avgLeaningDepthTextField = (TextView) findViewById(R.id.avgleaningdepth_textfield);
 
+    }
+
+    public void updateSBPDBPIndicator() {
+        sbpdbpTextField.setText((int)bpMonitor.getSBP() + "/" + (int)bpMonitor.getDBP());
     }
 
     public void updateBPMIndicator() {
-        bpmTextField.setText(String.valueOf((int) bloodPressureMonitor.getBPM()));
+        bpmTextField.setText(String.valueOf((int) bpMonitor.getBPM()));
     }
 
     public void updateAvgDepthIndicator() {
-        avgDepthTextField.setText(String.valueOf((int)bloodPressureMonitor.getAvgDepth()));
+        avgDepthTextField.setText(String.valueOf((int) bpMonitor.getAvgDepth()));
     }
 
     public void updateAvgLeaningDepthIndicator() {
-        avgLeaningDepthTextField.setText(String.valueOf((int)bloodPressureMonitor.getAvgLeaningDepth()));
+        avgLeaningDepthTextField.setText(String.valueOf((int) bpMonitor.getAvgLeaningDepth()));
     }
 
     /**
@@ -274,20 +340,20 @@ public class MainActivity extends Activity {
      */
     private void refreshChart() {
 
-        bloodPressureMonitor.refresh();
+        bpMonitor.refresh();
 
-        depthEntries.clear();
-        pressureEntries.clear();
-        endTitleEntries.clear();
+        entriesDepth.clear();
+        entriesBP.clear();
+        entriesEndTitle.clear();
 
         bpmTextField.setText(String.valueOf(0));
         avgDepthTextField.setText(String.valueOf(0));
         avgLeaningDepthTextField.setText(String.valueOf(0));
 
         //create starting points
-        depthEntries.add(new Entry(0, 0));
-        pressureEntries.add(new Entry(0, 0));
-        endTitleEntries.add(new Entry(0, 0));
+        entriesDepth.add(new BarEntry(0, 0));
+        entriesBP.add(new Entry(0, 0));
+        entriesEndTitle.add(new Entry(0, 0));
 
         reformatAxis(0,0); //reset axis
 
@@ -313,7 +379,7 @@ public class MainActivity extends Activity {
 
         Log.i(TAG, depth + ", " + time);
 
-        bloodPressureMonitor.updateDepth(time, depth);
+        bpMonitor.updateDepth(time, depth);
 
     }
 
@@ -322,10 +388,10 @@ public class MainActivity extends Activity {
      * seconds ago
      */
     private void deleteOldDataPoints() {
-        while(depthEntries.get(0).getX() < (time - MAXIMUM_VISIBLE_TIME_RANGE)) {
-            depthEntries.remove(0);
-            pressureEntries.remove(0);
-            endTitleEntries.remove(0);
+        while(entriesDepth.get(0).getX() < (time - MAXIMUM_VISIBLE_TIME_RANGE)) {
+            entriesDepth.remove(0);
+            entriesBP.remove(0);
+            entriesEndTitle.remove(0);
         }
     }
 
@@ -339,19 +405,25 @@ public class MainActivity extends Activity {
      */
     private void reformatAxis(float time, float value) {
         if(time > visibleTimeRange - TIME_PADDING) {
-            xAxis.setAxisMaximum(time + TIME_PADDING);
-            xAxis.setAxisMinimum(time + TIME_PADDING - visibleTimeRange);
+            xAxisBP.setAxisMaximum(time + TIME_PADDING);
+            xAxisBP.setAxisMinimum(time + TIME_PADDING - visibleTimeRange);
+            xAxisEndTitle.setAxisMaximum(time + TIME_PADDING);
+            xAxisEndTitle.setAxisMinimum(time + TIME_PADDING - visibleTimeRange);
         } else {
-            xAxis.setAxisMaximum(visibleTimeRange);
-            xAxis.setAxisMinimum(0);
+            xAxisBP.setAxisMaximum(visibleTimeRange);
+            xAxisBP.setAxisMinimum(0);
+            xAxisEndTitle.setAxisMaximum(visibleTimeRange);
+            xAxisEndTitle.setAxisMinimum(0);
         }
 
-        if((int)(value * 1.1) > MAXIMUM_Y) {
-            MAXIMUM_Y = (int)(value * 1.1);
-            yAxis.setAxisMaximum(MAXIMUM_Y);
+        if((int)(value * 1.1) > MAXIMUM_Y_BP) {
+            MAXIMUM_Y_BP = (int)(value * 1.1);
+            yAxisBP.setAxisMaximum(MAXIMUM_Y_BP);
         }
 
-        chart.fitScreen(); //set visible boundaries to max
+        chartBP.fitScreen(); //set visible boundaries to max
+        chartEndTitle.fitScreen(); //set visible boundaries to max
+        chartDepth.fitScreen();
     }
 
 
@@ -399,7 +471,7 @@ public class MainActivity extends Activity {
         //If it is not an exception will be thrown in the write method and finish() will be called
         mConnectedThread.write("x");
 
-        refreshChart(); //refresh chart (set x axis to 0)
+        refreshChart(); //refresh chartBP (set x axis to 0)
 
 
     }
@@ -413,7 +485,7 @@ public class MainActivity extends Activity {
             //Don't leave Bluetooth sockets open when leaving activity
             btSocket.close();
             initialized = false; //stop collecting data points
-            bloodPressureMonitor.release();
+            bpMonitor.release();
         } catch (IOException e2) {
             //insert code to deal with this
         }
