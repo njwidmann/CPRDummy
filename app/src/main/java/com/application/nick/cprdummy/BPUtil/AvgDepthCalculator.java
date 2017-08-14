@@ -9,9 +9,6 @@ import java.util.ArrayList;
  */
 
 public class AvgDepthCalculator {
-    //Data restrictions
-    private static final int MAX_DEPTH = 65;
-    private static final int MIN_DEPTH = 5;
 
     private static final int LOGSIZE = 3; //number of last depths to average
 
@@ -67,11 +64,11 @@ public class AvgDepthCalculator {
         }
         avgDepth = (float) totalDepth / compressionEndDepths.size();
 
-        if(avgDepth > MAX_DEPTH) {
+        /*if(avgDepth > MAX_DEPTH) {
             avgDepth = MAX_DEPTH;
         } else if(avgDepth < MIN_DEPTH) {
             avgDepth = MIN_DEPTH;
-        }
+        }*/
 
         return avgDepth;
     }

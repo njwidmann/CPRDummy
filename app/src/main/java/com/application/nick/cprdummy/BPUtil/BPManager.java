@@ -12,6 +12,12 @@ public class BPManager {
 
     private static final String TAG = "BPUtil";
 
+    //Because of data limitations
+    private static final int MAX_BPM = 130;
+    private static final int MIN_BPM = 70;
+    private static final int MAX_DEPTH = 65;
+    private static final int MIN_DEPTH = 5;
+
     public enum DEPTH_DIRECTION {
         INCREASING, DECREASING, STRAIGHT
     }
@@ -20,13 +26,10 @@ public class BPManager {
 
     private float bpm;
     private float avgDepth;
-    private DEPTH_DIRECTION previousDirection;
     private int straightCounter;
     private float sbp;
     private float dbp;
-    //private float compressionStartPressure;
     private float avgLeaningDepth;
-    //private long lastCompressionEndTime;
 
     AvgDepthCalculator avgDepthCalculator;
     BPCalculator bpCalculator;
@@ -43,12 +46,9 @@ public class BPManager {
 
         bpm = 0;
         avgDepth = 0;
-        previousDirection = DEPTH_DIRECTION.STRAIGHT;
         sbp = 0;
         dbp = 0;
-        //compressionStartPressure = 0;
         avgLeaningDepth = 0;
-        //lastCompressionEndTime = 0;
 
         avgDepthCalculator = new AvgDepthCalculator();
 
@@ -65,7 +65,6 @@ public class BPManager {
                 Log.i(TAG, "COMPRESSION START");
                 bpmCalculator.registerCompressionStart(time);
                 avgDepthCalculator.registerCompressionStart(depth);
-                //compressionStartPressure = bpCalculator.getBP();
                 calculateSBP(bpm, avgDepth);
                 bpCalculator.updateCompressionStartValues(depth, avgDepth, sbp, dbp);
             }
@@ -79,8 +78,6 @@ public class BPManager {
                 avgLeaningDepth = leaningCalculator.registerLeaningDepth(depth);
 
                 calculateDBP(bpm, avgDepth);
-
-                //lastCompressionEndTime = time;
             }
 
             @Override
@@ -92,7 +89,6 @@ public class BPManager {
         };
 
         bpCalculator = new BPCalculator();
-
 
     }
 
@@ -182,6 +178,18 @@ public class BPManager {
                 return 0;
             }
 
+            //due to limitations in our data, our model is only accurate inside a certain range
+            if(bpm > MAX_BPM) {
+                bpm = MAX_BPM;
+            } else if(bpm < MIN_BPM) {
+                bpm = MIN_BPM;
+            }
+            if(depth > MAX_DEPTH) {
+                depth = MAX_DEPTH;
+            } else if(depth < MIN_DEPTH) {
+                depth = MIN_DEPTH;
+            }
+
             return p00 + p10*bpm + p01*depth + p20*pow(bpm,2) + p11*bpm*depth + p02*pow(depth,2) + p30*pow(bpm,3) + p21*pow(bpm,2)*depth
                     + p12*bpm*pow(depth,2) + p03*pow(depth,3);
         }
@@ -208,6 +216,18 @@ public class BPManager {
         static double getSBP(float bpm, float depth) {
             if(bpm < 10) {
                 return 0;
+            }
+
+            //due to limitations in our data, our model is only accurate inside a certain range
+            if(bpm > MAX_BPM) {
+                bpm = MAX_BPM;
+            } else if(bpm < MIN_BPM) {
+                bpm = MIN_BPM;
+            }
+            if(depth > MAX_DEPTH) {
+                depth = MAX_DEPTH;
+            } else if(depth < MIN_DEPTH) {
+                depth = MIN_DEPTH;
             }
 
             return p00 + p10*bpm + p01*depth + p20*pow(bpm,2) + p11*bpm*depth + p02*pow(depth,2) + p30*pow(bpm,3) + p21*pow(bpm,2)*depth
