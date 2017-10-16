@@ -7,41 +7,30 @@ import java.util.ArrayList;
  */
 
 public abstract class DirectionCalculator {
-    private static final int LOGSIZE = 2;
     private static final long TIME_DELAY = 200; //ms
     private static final int DEPTH_DIFFERENCE = 5;
-    private static final float DEPTH_MOVING_BOUNDARY = 0.002f; //if slope is greater than positive val then increasing. less than negative then decreasing. else straight
+    //private static final float DEPTH_MOVING_BOUNDARY = 0.002f; //if slope is greater than positive val then increasing. less than negative then decreasing. else straight
 
-    private ArrayList<Integer> depthLog;
-    private ArrayList<Long> timeLog;
+    private ArrayList<DataPoint> dataPoints;
 
     private BPManager.DEPTH_DIRECTION previousDirection;
 
     private boolean compressionStarted;
 
-    public DirectionCalculator() {
-        depthLog = new ArrayList<>();
-        timeLog = new ArrayList<>();
-        for(int i = 0; i < LOGSIZE; i++) {
-            depthLog.add(0);
-            timeLog.add(0L);
-        }
-
+    public DirectionCalculator(ArrayList<DataPoint> dataPoints) {
+        this.dataPoints = dataPoints;
 
         compressionStarted = false;
     }
 
-    public BPManager.DEPTH_DIRECTION update(long time, int depth) {
-        timeLog.add(time);
-        depthLog.add(depth);
-        if(timeLog.size() > LOGSIZE) {
-            timeLog.remove(0);
-            depthLog.remove(0);
-        }
-        BPManager.DEPTH_DIRECTION direction = getDepthDirection();
+    /**
+     * call this after making changes to dataPoints list
+     */
+    public BPManager.DEPTH_DIRECTION update(DataPoint latestDataPoint) {
+        BPManager.DEPTH_DIRECTION direction = getDepthDirection(); //get direction of motion of latest points
+        latestDataPoint.direction = direction;
 
-        handleDirectionChanges(depth, time, direction);
-
+        handleDirectionChanges(direction);
         return direction;
     }
 
@@ -49,43 +38,102 @@ public abstract class DirectionCalculator {
         if(previousDirection == null) {
             return BPManager.DEPTH_DIRECTION.INCREASING; //must be increasing on start
         }
-        //if the difference between the last two changes is large enough, we can assume
-        // it was just a small change and still relatively straight
-        if(timeLog.get(LOGSIZE - 1) - timeLog.get(LOGSIZE - 2) > TIME_DELAY) {
-            return BPManager.DEPTH_DIRECTION.STRAIGHT;
-        }
+
+        int currentLogSize = dataPoints.size();
+
         //if there was a big jump in depth in either direction we can assume increasing or decreasing
-        if(depthLog.get(LOGSIZE - 1) - depthLog.get(LOGSIZE - 2) > DEPTH_DIFFERENCE) {
+        if(dataPoints.get(currentLogSize - 1).depth - dataPoints.get(currentLogSize - 2).depth > DEPTH_DIFFERENCE) {
             return BPManager.DEPTH_DIRECTION.INCREASING;
-        } else if (depthLog.get(LOGSIZE - 2) - depthLog.get(LOGSIZE - 1) > DEPTH_DIFFERENCE) {
+        } else if (dataPoints.get(currentLogSize - 2).depth - dataPoints.get(currentLogSize - 1).depth > DEPTH_DIFFERENCE) {
             return BPManager.DEPTH_DIRECTION.DECREASING;
         }
         //finally, for other cases we check slope
-        float slope = (depthLog.get(LOGSIZE - 1) - depthLog.get(0)) / (float)(timeLog.get(LOGSIZE - 1) - timeLog.get(0)); //rise/run
-        if(slope < -DEPTH_MOVING_BOUNDARY) {
+        float slope = (dataPoints.get(currentLogSize - 1).depth - dataPoints.get(0).depth) / (float)(dataPoints.get(currentLogSize - 1).time - dataPoints.get(0).time); //rise/run
+        if(slope < 0) {
             return BPManager.DEPTH_DIRECTION.DECREASING;
-        } else if(slope > DEPTH_MOVING_BOUNDARY) {
+        } else if(slope > 0) {
             return BPManager.DEPTH_DIRECTION.INCREASING;
         } else {
             return BPManager.DEPTH_DIRECTION.STRAIGHT;
         }
     }
 
-    private void handleDirectionChanges(int depth, long time, BPManager.DEPTH_DIRECTION direction) {
+    private void handleDirectionChanges(BPManager.DEPTH_DIRECTION direction) {
         if( !compressionStarted && direction == BPManager.DEPTH_DIRECTION.INCREASING && (previousDirection == null || previousDirection == BPManager.DEPTH_DIRECTION.DECREASING || previousDirection == BPManager.DEPTH_DIRECTION.STRAIGHT )) {
-            handleCompressionStart(depth, time);
+            // since the logsize is relatively large, we might not register the compression start until
+            // a few values after it has happened. We want to make sure we are getting the true
+            // compression start values, which will be at the minimum logged depth
+            int minDepthIndex = getMinDepthLogIndex();
+            //set all the datapoints in the log after min depth to increasing
+
+            for(int i = minDepthIndex + 1; i < dataPoints.size(); i++) {
+                dataPoints.get(i).direction = BPManager.DEPTH_DIRECTION.INCREASING;
+            }
+
+            handleCompressionStart(dataPoints.get(minDepthIndex).depth, dataPoints.get(minDepthIndex).time);
             compressionStarted = true;
         } else if ( compressionStarted && (direction == BPManager.DEPTH_DIRECTION.STRAIGHT || direction == BPManager.DEPTH_DIRECTION.INCREASING)  && (previousDirection == BPManager.DEPTH_DIRECTION.DECREASING)) {
-            handleCompressionEnd(depth, time);
+            //same thing for compression end, we want to make sure we get the true end values
+            int minDepthIndex = getMinDepthLogIndex();
+
+            //set all the datapoints in the log before and including min depth to decreasing
+            for(int i = 0; i <= minDepthIndex; i++) {
+                dataPoints.get(i).direction = BPManager.DEPTH_DIRECTION.DECREASING;
+            }
+
+            handleCompressionEnd(dataPoints.get(minDepthIndex).depth, dataPoints.get(minDepthIndex).time);
             compressionStarted = false;
             if(direction == BPManager.DEPTH_DIRECTION.INCREASING) {
-                handleCompressionStart(depth, time); //might now be increasing again already after previous compression ends
+                //might now be increasing again already after previous compression ends
+                handleCompressionStart(dataPoints.get(minDepthIndex).depth, dataPoints.get(minDepthIndex).time);
                 compressionStarted = true;
             }
         } else if (compressionStarted && previousDirection == BPManager.DEPTH_DIRECTION.INCREASING && (direction == BPManager.DEPTH_DIRECTION.STRAIGHT || direction == BPManager.DEPTH_DIRECTION.DECREASING)) {
-            handleCompressionPeak(depth, time);
+            //same for compression peak, we want to make sure we get the true peak values
+            int maxDepthIndex = getMaxDepthLogIndex();
+
+            //set all the datapoints in the log before and including max depth to increasing
+            for(int i = 0; i <= maxDepthIndex; i++) {
+                dataPoints.get(i).direction = BPManager.DEPTH_DIRECTION.INCREASING;
+            }
+
+            handleCompressionPeak(dataPoints.get(maxDepthIndex).depth, dataPoints.get(maxDepthIndex).time);
         }
         previousDirection = direction;
+    }
+
+    /**
+     * @return the index of the max depth value in the depth log
+     */
+    private int getMaxDepthLogIndex() {
+        int maxDepth = 0;
+        int maxIndex = 0;
+        for(int i = 0; i < dataPoints.size(); i++) {
+            if(dataPoints.get(i).depth >= maxDepth) {
+                maxDepth = dataPoints.get(i).depth;
+                maxIndex = i;
+            }
+        }
+        return maxIndex;
+    }
+
+    /**
+     * @return the index of the min depth value in the depth log
+     */
+    private int getMinDepthLogIndex() {
+        int minDepth = 1000;
+        int minIndex = 0;
+        for(int i = 0; i < dataPoints.size(); i++) {
+            if(dataPoints.get(i).depth <= minDepth) {
+                minDepth = dataPoints.get(i).depth;
+                minIndex = i;
+            }
+        }
+        return minIndex;
+    }
+
+    public void reset() {
+        compressionStarted = false;
     }
 
     public abstract void handleCompressionStart(int depth, long time);

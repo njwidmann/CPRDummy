@@ -1,5 +1,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
+
+
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
@@ -35,32 +37,36 @@
     </LinearLayout>
 
 
-    <GridLayout
+    <android.support.v7.widget.GridLayout
+        xmlns:grid="http://schemas.android.com/apk/res-auto"
+        xmlns:android="http://schemas.android.com/apk/res/android"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="100"
-        android:rowCount="2"
-        android:columnCount="2">
+        grid:rowCount="2"
+        grid:columnCount="2">
 
         <com.github.mikephil.charting.charts.LineChart
             android:id="@+id/chartBP"
             android:layout_width="0dp"
             android:layout_height="0dp"
-            android:layout_row="0"
-            android:layout_column="0"
-            android:layout_rowWeight="70"
-            android:layout_columnWeight="75"
-            android:background="@color/black"/>
+            grid:layout_row="0"
+            grid:layout_column="0"
+            grid:layout_rowWeight="70"
+            grid:layout_columnWeight="75"
+            background="@color/black"/>
 
-        <GridLayout
+        <android.support.v7.widget.GridLayout
+            xmlns:grid="http://schemas.android.com/apk/res-auto"
+            xmlns:android="http://schemas.android.com/apk/res/android"
             android:layout_width="0dp"
             android:layout_height="0dp"
-            android:rowCount="4"
-            android:columnCount="2"
-            android:layout_row="0"
-            android:layout_column="1"
-            android:layout_rowWeight="70"
-            android:layout_columnWeight="25">
+            grid:rowCount="5"
+            grid:columnCount="2"
+            grid:layout_row="0"
+            grid:layout_column="1"
+            grid:layout_rowWeight="70"
+            grid:layout_columnWeight="25">
 
             <TextView
                 android:layout_width="wrap_content"
@@ -68,83 +74,106 @@
                 android:id="@+id/sbpdbp_textfield"
                 android:text="@string/sbp_dbp"
                 android:textColor="@color/red"
-                android:textSize="50sp"
-                android:layout_row="0"
-                android:layout_column="0"
-                android:layout_columnSpan="2"
-                android:paddingBottom="50dp"/>
+                android:textSize="30sp"
+                grid:layout_row="0"
+                grid:layout_column="0"
+                grid:layout_columnSpan="2"
+                android:paddingBottom="10dp"/>
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/BPM"
-                android:labelFor="@+id/bpm_textfield"
-                android:textColor="@color/white"
-                android:layout_row="1"
-                android:layout_column="0"/>
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:id="@+id/bpm_textfield"
-                android:textColor="@color/white"
-                android:layout_row="1"
-                android:layout_column="1"
-                android:paddingStart="10dp"/>
+
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/AvgDepth"
                 android:labelFor="@+id/avgdepth_textfield"
                 android:textColor="@color/white"
-                android:layout_row="2"
-                android:layout_column="0"/>
+                grid:layout_row="1"
+                grid:layout_column="0"/>
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:id="@+id/avgdepth_textfield"
                 android:textColor="@color/white"
-                android:layout_row="2"
-                android:layout_column="1"
-                android:paddingStart="10dp"/>
+                grid:layout_row="1"
+                grid:layout_column="1"
+                grid:paddingStart="10dp"/>
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/AvgLeaningDepth"
                 android:labelFor="@+id/avgleaningdepth_textfield"
                 android:textColor="@color/white"
-                android:layout_row="3"
-                android:layout_column="0"/>
+                grid:layout_row="2"
+                grid:layout_column="0"/>
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:id="@+id/avgleaningdepth_textfield"
                 android:textColor="@color/white"
-                android:layout_row="3"
-                android:layout_column="1"
+                grid:layout_row="2"
+                grid:layout_column="1"
                 android:paddingStart="10dp"/>
-        </GridLayout>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/C02"
+                android:labelFor="@+id/c02_textfield"
+                android:textColor="@color/cyan"
+                grid:layout_row="3"
+                grid:layout_column="0"
+                android:paddingTop="10dp"
+                android:textSize="20sp"/>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:id="@+id/c02_textfield"
+                android:textColor="@color/cyan"
+                grid:layout_row="3"
+                grid:layout_column="1"
+                android:paddingBottom="10dp"
+                android:textSize="20sp"/>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/BPM"
+                android:labelFor="@+id/bpm_textfield"
+                android:textColor="@color/green"
+                grid:layout_row="4"
+                grid:layout_column="0"
+                android:paddingTop="10dp"
+                android:textSize="20sp"/>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:id="@+id/bpm_textfield"
+                android:textColor="@color/green"
+                grid:layout_row="4"
+                grid:layout_column="1"
+                android:paddingBottom="10dp"
+                android:textSize="20sp"/>
+        </android.support.v7.widget.GridLayout>
 
         <com.github.mikephil.charting.charts.LineChart
             android:id="@+id/chartEndTitle"
             android:layout_width="0dp"
             android:layout_height="0dp"
-            android:layout_row="1"
-            android:layout_column="0"
-            android:layout_rowWeight="30"
-            android:layout_columnWeight="75"
+            grid:layout_row="1"
+            grid:layout_column="0"
+            grid:layout_rowWeight="30"
+            grid:layout_columnWeight="75"
             android:background="@color/black"/>
 
         <com.github.mikephil.charting.charts.BarChart
             android:id="@+id/chartDepth"
             android:layout_width="0dp"
             android:layout_height="0dp"
-            android:layout_row="1"
-            android:layout_column="1"
-            android:layout_rowWeight="30"
-            android:layout_columnWeight="25"
+            grid:layout_row="1"
+            grid:layout_column="1"
+            grid:layout_rowWeight="30"
+            grid:layout_columnWeight="25"
             android:background="@color/black"/>
 
-    </GridLayout>
+    </android.support.v7.widget.GridLayout>
 
 
 

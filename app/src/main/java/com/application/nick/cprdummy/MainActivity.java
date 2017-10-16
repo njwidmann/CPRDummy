@@ -51,13 +51,15 @@ public class MainActivity extends Activity {
 
     private static final String TAG = "MainActivity";
 
-    private static final int DEFAULT_VISIBLE_TIME_RANGE = 10;
+    private static final int DEFAULT_VISIBLE_TIME_RANGE = 5;
     private static final int MINIMUM_VISIBLE_TIME_RANGE = 5;
     private static final int MAXIMUM_VISIBLE_TIME_RANGE = 60;
     private static final int TIME_PADDING = 2;
-    private static int MAXIMUM_Y_BP = 145;
+    private static final int DEFAULT_MAXIMUM_Y_BP = 100;
     private static final int MAXIMUM_Y_END_TITLE = 50;
-    private static final int MAXIMUM_Y_DEPTH = 80;
+    private static final int MAXIMUM_Y_DEPTH = 55;
+
+    private static final float DEPTH_SCALE_FACTOR = (float)50.0/75; //each depth count is not exactly 1mm
 
     // String for MAC address
     private static String address;
@@ -69,6 +71,8 @@ public class MainActivity extends Activity {
     List<Entry> entriesBP, entriesEndTitle;
     List<BarEntry> entriesDepth;
 
+    int maxYBP = DEFAULT_MAXIMUM_Y_BP;
+
     SeekBar slider;
 
     private float time = 0;
@@ -78,8 +82,9 @@ public class MainActivity extends Activity {
 
     private BPMonitor bpMonitor;
 
-    private TextView sbpdbpTextField, bpmTextField, avgDepthTextField, avgLeaningDepthTextField;
+    private TextView sbpdbpTextField, bpmTextField, avgDepthTextField, avgLeaningDepthTextField, c02TextField;
 
+    private int negativeDepthOffset = 0;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -147,17 +152,12 @@ public class MainActivity extends Activity {
 
         //format axes
         xAxisBP = chartBP.getXAxis();
-        //xAxisBP.setPosition(XAxis.XAxisPosition.BOTTOM); //put x axis on the bottom of the chartBP
-        //xAxisBP.setTextColor(Color.WHITE);
         xAxisBP.setDrawLabels(false);
-        //xAxisBP.setEnabled(false);
         yAxisBP = chartBP.getAxisLeft(); //y axis is on the left
         yAxisBP.setTextColor(Color.WHITE);
         chartBP.getAxisRight().setEnabled(false); //no right side y axis
 
         xAxisEndTitle = chartEndTitle.getXAxis();
-        //xAxisEndTitle.setPosition(XAxis.XAxisPosition.BOTTOM); //put x axis on the bottom of the chartBP
-        //xAxisEndTitle.setTextColor(Color.WHITE);
         xAxisEndTitle.setDrawLabels(false);
         yAxisEndTitle = chartEndTitle.getAxisLeft(); //y axis is on the left
         yAxisEndTitle.setTextColor(Color.WHITE);
@@ -165,8 +165,6 @@ public class MainActivity extends Activity {
         chartEndTitle.getAxisRight().setEnabled(false); //no right side y axis
 
         xAxisDepth = chartDepth.getXAxis();
-        //xAxisEndTitle.setPosition(XAxis.XAxisPosition.BOTTOM); //put x axis on the bottom of the chartBP
-        //xAxisEndTitle.setTextColor(Color.WHITE);
         xAxisDepth.setDrawLabels(false);
         yAxisDepth = chartDepth.getAxisLeft(); //y axis is on the left
         yAxisDepth.setTextColor(Color.WHITE);
@@ -178,39 +176,36 @@ public class MainActivity extends Activity {
         chartDescritionBP.setText(getString(R.string.chart_description_BP));
         chartDescritionBP.setTextColor(Color.WHITE);
         chartBP.setDescription(chartDescritionBP);
-        chartBP.getLegend().setEnabled(false);//setTextColor(Color.WHITE);
+        chartBP.getLegend().setEnabled(false);
+        chartBP.setTouchEnabled(false);
 
         Description chartDescritionEndTitle = new Description();
         chartDescritionEndTitle.setText(getString(R.string.chart_description_end_title));
         chartDescritionEndTitle.setTextColor(Color.WHITE);
         chartEndTitle.setDescription(chartDescritionEndTitle);
-        chartEndTitle.getLegend().setEnabled(false);//setTextColor(Color.WHITE);
+        chartEndTitle.getLegend().setEnabled(false);
+        chartEndTitle.setTouchEnabled(false);
 
         Description chartDescritionDepth = new Description();
         chartDescritionDepth.setText(getString(R.string.chart_description_depth));
         chartDescritionDepth.setTextColor(Color.WHITE);
         chartDepth.setDescription(chartDescritionDepth);
-        chartDepth.getLegend().setEnabled(false);//setTextColor(Color.WHITE);
+        chartDepth.getLegend().setEnabled(false);
+        chartDepth.setTouchEnabled(false);
 
         //default axis boundaries
         xAxisBP.setAxisMinimum(0);
         xAxisBP.setAxisMaximum(visibleTimeRange);
         yAxisBP.setAxisMinimum(0);
-        yAxisBP.setAxisMaximum(MAXIMUM_Y_BP);
+        yAxisBP.setAxisMaximum(DEFAULT_MAXIMUM_Y_BP);
 
         xAxisEndTitle.setAxisMinimum(0);
         xAxisEndTitle.setAxisMaximum(visibleTimeRange);
         yAxisEndTitle.setAxisMinimum(0);
         yAxisEndTitle.setAxisMaximum(MAXIMUM_Y_END_TITLE);
 
-        //xAxisDepth.setAxisMinimum(0);
-        //xAxisDepth.setAxisMaximum(visibleTimeRange);
         yAxisDepth.setAxisMinimum(0);
         yAxisDepth.setAxisMaximum(MAXIMUM_Y_DEPTH);
-
-        //don't let user pinch to scale chart. This would get weird with real time data
-        chartBP.setScaleEnabled(false);
-        chartEndTitle.setScaleEnabled(false);
 
         //button to refresh chart and clear all data
         final Button refreshButton = (Button)findViewById(R.id.refresh_button);
@@ -260,7 +255,12 @@ public class MainActivity extends Activity {
                             String dataInPrint = recDataString.substring(startOfLineIndex, endOfLineIndex); // extract string
                             //Log.i("MainActivity", "bluetoothIn.handleMessage(): " + dataInPrint);
 
+
+                            long startTime = System.nanoTime();
                             processBTMessage(dataInPrint);
+                            float elapsedTime = (System.nanoTime() - startTime) / 1000000.0f;
+
+                            Log.i(TAG, "elapsedTime = " + elapsedTime + "; message = " + dataInPrint);
 
                             recDataString.delete(0, recDataString.length()); //clear all string data
 
@@ -291,7 +291,7 @@ public class MainActivity extends Activity {
             }
 
             @Override
-            public void plotAll(float time, int depth, float pressure, float endTitle) {
+            public void plotAll(float time, int depth, float pressure, final float endTitle) {
                 plotDepth(depth);
                 plotPressure(time, pressure);
                 plotEndTitle(time, endTitle);
@@ -307,6 +307,7 @@ public class MainActivity extends Activity {
                         updateBPMIndicator();
                         updateAvgLeaningDepthIndicator();
                         updateSBPDBPIndicator();
+                        updateC02Indicator();
                     }
                 });
             }
@@ -316,6 +317,7 @@ public class MainActivity extends Activity {
         bpmTextField = (TextView) findViewById(R.id.bpm_textfield);
         avgDepthTextField = (TextView) findViewById(R.id.avgdepth_textfield);
         avgLeaningDepthTextField = (TextView) findViewById(R.id.avgleaningdepth_textfield);
+        c02TextField = (TextView) findViewById(R.id.c02_textfield);
 
     }
 
@@ -325,6 +327,10 @@ public class MainActivity extends Activity {
 
     public void updateBPMIndicator() {
         bpmTextField.setText(String.valueOf((int) bpMonitor.getBPM()));
+    }
+
+    public void updateC02Indicator() {
+        c02TextField.setText(String.valueOf(bpMonitor.getEndTitle()));
     }
 
     public void updateAvgDepthIndicator() {
@@ -355,7 +361,9 @@ public class MainActivity extends Activity {
         entriesBP.add(new Entry(0, 0));
         entriesEndTitle.add(new Entry(0, 0));
 
-        reformatAxis(0,0); //reset axis
+        maxYBP = 0;
+
+        reformatAxis(0,DEFAULT_MAXIMUM_Y_BP); //reset axis
 
         initialized = true; //start collecting new data points
 
@@ -377,6 +385,14 @@ public class MainActivity extends Activity {
         long time = Long.valueOf(timeStr);
         int depth = Integer.valueOf(depthStr);
 
+        if(depth * -1 > negativeDepthOffset) {
+            negativeDepthOffset = depth * -1;
+        }
+
+        depth += negativeDepthOffset;
+        depth = (int)(depth * DEPTH_SCALE_FACTOR);
+        depth -= 5;
+
         Log.i(TAG, depth + ", " + time);
 
         bpMonitor.updateDepth(time, depth);
@@ -388,8 +404,7 @@ public class MainActivity extends Activity {
      * seconds ago
      */
     private void deleteOldDataPoints() {
-        while(entriesDepth.get(0).getX() < (time - MAXIMUM_VISIBLE_TIME_RANGE)) {
-            entriesDepth.remove(0);
+        while(entriesBP.get(0).getX() < (time - MAXIMUM_VISIBLE_TIME_RANGE)) {
             entriesBP.remove(0);
             entriesEndTitle.remove(0);
         }
@@ -416,9 +431,9 @@ public class MainActivity extends Activity {
             xAxisEndTitle.setAxisMinimum(0);
         }
 
-        if((int)(value * 1.1) > MAXIMUM_Y_BP) {
-            MAXIMUM_Y_BP = (int)(value * 1.1);
-            yAxisBP.setAxisMaximum(MAXIMUM_Y_BP);
+        if((int)(value * 1.1) > maxYBP) {
+            maxYBP = (int)(value * 1.1);
+            yAxisBP.setAxisMaximum(maxYBP);
         }
 
         chartBP.fitScreen(); //set visible boundaries to max

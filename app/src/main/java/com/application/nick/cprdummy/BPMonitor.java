@@ -1,8 +1,10 @@
 package com.application.nick.cprdummy;
 
+import android.provider.ContactsContract;
 import android.util.Log;
 
 import com.application.nick.cprdummy.BPUtil.BPManager;
+import com.application.nick.cprdummy.BPUtil.DataPoint;
 
 import java.util.ArrayList;
 
@@ -22,6 +24,7 @@ public abstract class BPMonitor {
     private long lastLoggedSystemTime;
     private long lastLoggedTime = 0;
     private int lastLoggedDepth;
+    private DataPoint lastLoggedDataPoint;
 
     BPManager bpManager;
 
@@ -49,8 +52,11 @@ public abstract class BPMonitor {
     public float getBPM() { return bpManager.getBPM(); }
     public float getAvgDepth() { return bpManager.getAvgAbsoluteDepth(); }
     public float getAvgLeaningDepth() { return bpManager.getAvgLeaningDepth(); }
-    public float getSBP() {return bpManager.getSBP();}
-    public float getDBP() {return bpManager.getDBP();}
+    public float getSBP() {return bpManager.getSBP(lastLoggedTime);}
+    public float getDBP() {return bpManager.getDBP(lastLoggedTime);}
+    public int getEndTitle() {
+        return bpManager.getEndTitle();
+    }
 
     private long getStartTime() {
         return startTime;
@@ -73,33 +79,56 @@ public abstract class BPMonitor {
         @Override
         public void run() {
             while(RUNNING) {
-                if(getStartTime() > 0 && getCurrentTime() - lastLoggedSystemTime > 100) {
-                    //add straight data. arduino only logs on changes so we can assume constant depth if no update
-                    updateDepth(lastLoggedTime + 100, lastLoggedDepth);
-                }
+
                 if(timeLog.size() > 0 && depthLog.size() > 0) {
                     try {
-                        int depth = depthLog.remove(0);
-                        long time = timeLog.remove(0);
 
-                        BPManager.DEPTH_DIRECTION direction = bpManager.getDepthDirection(time, depth);
-                        float pressure = bpManager.getPressure(depth, time, direction);
-                        float endTitle = bpManager.getEndTitle(time);
-                        if(direction == BPManager.DEPTH_DIRECTION.INCREASING) {
-                            Log.i(TAG, "Time = " + time + "; Depth = " + depth + "; Direction = INCREASING; BPM = " + bpManager.getBPM() + "; AvgDepth = " + bpManager.getAvgRelativeDepth() + "; Pressure = " + pressure + "; SBP = " + bpManager.getSBP() + "; DBP = " + bpManager.getDBP());
-                        } else if(direction == BPManager.DEPTH_DIRECTION.DECREASING) {
-                            Log.i(TAG, "Time = " + time + "; Depth = " + depth + "; Direction = DECREASING; BPM = " + bpManager.getBPM() + "; AvgDepth = " + bpManager.getAvgRelativeDepth() + "; Pressure = " + pressure + "; SBP = " + bpManager.getSBP() + "; DBP = " + bpManager.getDBP());
-                        } else {
-                            Log.i(TAG, "Time = " + time + "; Depth = " + depth + "; Direction = STRAIGHT; BPM = " + bpManager.getBPM() + "; AvgDepth = " + bpManager.getAvgRelativeDepth() + "; Pressure = " + pressure + "; SBP = " + bpManager.getSBP() + "; DBP = " + bpManager.getDBP());
-                        }
-
-                        plotAll((time - startTime)/1000f, lastLoggedDepth, pressure, endTitle);
+                        bpManager.addDataPoint(timeLog.remove(0), depthLog.remove(0));
                         lastLoggedSystemTime = getCurrentTime();
+
+                        if(bpManager.isDataPointLogFull()) {
+                            DataPoint dataPoint = bpManager.getNextDataPoint();
+
+                            BPManager.DEPTH_DIRECTION direction = dataPoint.direction;
+                            float pressure = bpManager.getPressure(dataPoint);
+                            float endTitle = dataPoint.endTitle;
+                            if (direction == BPManager.DEPTH_DIRECTION.INCREASING) {
+                                Log.i(TAG, "Time = " + dataPoint.time + "; Depth = " + dataPoint.depth + "; Direction = INCREASING; BPM = " + bpManager.getBPM() + "; AvgDepth = " + bpManager.getAvgRelativeDepth() + "; Pressure = " + pressure + "; SBP = " + dataPoint.sbp + "; DBP = " + dataPoint.dbp);
+                            } else if (direction == BPManager.DEPTH_DIRECTION.DECREASING) {
+                                Log.i(TAG, "Time = " + dataPoint.time + "; Depth = " + dataPoint.depth + "; Direction = DECREASING; BPM = " + bpManager.getBPM() + "; AvgDepth = " + bpManager.getAvgRelativeDepth() + "; Pressure = " + pressure + "; SBP = " + dataPoint.sbp + "; DBP = " + dataPoint.dbp);
+                            } else {
+                                Log.i(TAG, "Time = " + dataPoint.time + "; Depth = " + dataPoint.depth + "; Direction = STRAIGHT; BPM = " + bpManager.getBPM() + "; AvgDepth = " + bpManager.getAvgRelativeDepth() + "; Pressure = " + pressure + "; SBP = " + dataPoint.sbp + "; DBP = " + dataPoint.dbp);
+                            }
+
+                            //make waveform more smooth by plotting intermediate datapoints
+                            if(lastLoggedDataPoint != null) {
+                                int deltaDepthTotal = dataPoint.depth - lastLoggedDataPoint.depth;
+                                if(deltaDepthTotal > 0) {
+                                    int deltaDepth = deltaDepthTotal / Math.abs(deltaDepthTotal);
+                                    long deltaTime = dataPoint.time - lastLoggedDataPoint.time;
+                                    deltaTime /= Math.abs(deltaDepthTotal);
+                                    for (int i = 1; i < Math.abs(deltaDepthTotal); i++) {
+                                        long time = lastLoggedDataPoint.time + deltaTime * i;
+                                        int depth = lastLoggedDataPoint.depth + deltaDepth * i;
+                                        DataPoint intermediateDataPoint = new DataPoint(time, depth, dataPoint);
+                                        float intermediatePressure = bpManager.getPressure(intermediateDataPoint);
+                                        plotAll((intermediateDataPoint.time - startTime) / 1000f, intermediateDataPoint.depth, intermediatePressure, endTitle);
+                                    }
+                                }
+                            }
+                            //plot everything. We want to plot lastLoggedDepth so that the depth bar graph is real time. Everything else has a slight delay
+                            plotAll((dataPoint.time - startTime) / 1000f, lastLoggedDepth, pressure, endTitle);
+
+                            lastLoggedDataPoint = dataPoint;
+                        }
 
                     } catch(Exception ex) {
                         ex.printStackTrace();
                     }
 
+                } else if(getStartTime() > 0 && getCurrentTime() - lastLoggedSystemTime > 100) {
+                    //add straight data. arduino only logs on changes so we can assume constant depth if no update
+                    updateDepth(lastLoggedTime + 100, lastLoggedDepth);
                 }
             }
         }

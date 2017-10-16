@@ -8,7 +8,7 @@ import java.util.ArrayList;
 
 public class AvgDepthCalculator {
 
-    private static final int LOGSIZE = 3; //number of last depths to average
+    private static final int MAX_LOG_SIZE = 5; //number of last depths to average
 
     private ArrayList<Integer> compressionStartDepths;
     private ArrayList<Integer> compressionPeakDepths;
@@ -29,20 +29,20 @@ public class AvgDepthCalculator {
 
     public void registerCompressionStart(int depth) {
         compressionStartDepths.add(depth);
-        if(compressionStartDepths.size() > LOGSIZE) {
+        if(compressionStartDepths.size() > MAX_LOG_SIZE) {
             compressionStartDepths.remove(0);
         }
     }
 
     public void registerCompressionPeak(int depth) {
         compressionPeakDepths.add(depth);
-        if(compressionPeakDepths.size() > LOGSIZE) {
+        if(compressionPeakDepths.size() > MAX_LOG_SIZE) {
             compressionPeakDepths.remove(0);
         }
     }
 
     /**
-     * averages last LOGSIZE depths to return average relative depth
+     * averages last MAX_LOG_SIZE depths to return average relative depth
      * @return avg relative depth
      */
     public float calculateAvgRelativeCompressionDepth() {

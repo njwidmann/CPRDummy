@@ -7,7 +7,7 @@ import java.util.ArrayList;
  */
 
 public class LeaningCalculator {
-    private static final int LOGSIZE = 3;
+    private static final int MAX_LOG_SIZE = 5;
 
     private ArrayList<Integer> leaningDepths;
     private float avgLeaningDepth;
@@ -25,7 +25,7 @@ public class LeaningCalculator {
      */
     public float registerLeaningDepth(int depth) {
         leaningDepths.add(depth);
-        if(leaningDepths.size() > LOGSIZE) {
+        if(leaningDepths.size() > MAX_LOG_SIZE) {
             leaningDepths.remove(0);
         }
         return calculateAverageLeaningDepth();
