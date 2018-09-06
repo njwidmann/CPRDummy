@@ -49,8 +49,8 @@ public abstract class BPMonitor {
     public float getBPM() { return bpManager.getBPM(); }
     public float getAvgDepth() { return bpManager.getAvgAbsoluteDepth(); }
     public float getAvgLeaningDepth() { return bpManager.getAvgLeaningDepth(); }
-    public float getSBP() {return bpManager.getSBP(lastLoggedTime);}
-    public float getDBP() {return bpManager.getDBP(lastLoggedTime);}
+    public float getSBP() {return bpManager.getSBP();}
+    public float getDBP() {return bpManager.getDBP();}
     public int getEndTitle() {
         return bpManager.getEndTitle();
     }
@@ -85,12 +85,12 @@ public abstract class BPMonitor {
                         if(bpManager.isDataPointLogFull()) {
                             DataPoint dataPoint = bpManager.getNextDataPoint();
 
-                            BPManager.DEPTH_DIRECTION direction = dataPoint.direction;
+                            BPManager.DIRECTION direction = dataPoint.depthDirection;
                             float pressure = bpManager.getPressure(dataPoint);
                             float endTitle = dataPoint.endTitle;
-                            if (direction == BPManager.DEPTH_DIRECTION.INCREASING) {
+                            if (direction == BPManager.DIRECTION.INCREASING) {
                                 Log.i(TAG, "Time = " + dataPoint.time + "; Depth = " + dataPoint.depth + "; Direction = INCREASING; BPM = " + bpManager.getBPM() + "; AvgDepth = " + bpManager.getAvgRelativeDepth() + "; Pressure = " + pressure + "; SBP = " + dataPoint.sbp + "; DBP = " + dataPoint.dbp);
-                            } else if (direction == BPManager.DEPTH_DIRECTION.DECREASING) {
+                            } else if (direction == BPManager.DIRECTION.DECREASING) {
                                 Log.i(TAG, "Time = " + dataPoint.time + "; Depth = " + dataPoint.depth + "; Direction = DECREASING; BPM = " + bpManager.getBPM() + "; AvgDepth = " + bpManager.getAvgRelativeDepth() + "; Pressure = " + pressure + "; SBP = " + dataPoint.sbp + "; DBP = " + dataPoint.dbp);
                             } else {
                                 Log.i(TAG, "Time = " + dataPoint.time + "; Depth = " + dataPoint.depth + "; Direction = STRAIGHT; BPM = " + bpManager.getBPM() + "; AvgDepth = " + bpManager.getAvgRelativeDepth() + "; Pressure = " + pressure + "; SBP = " + dataPoint.sbp + "; DBP = " + dataPoint.dbp);

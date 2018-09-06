@@ -10,7 +10,7 @@ import java.util.ArrayList;
 
 public class BPMCalculator {
 
-    private static final int MAX_LOG_SIZE = 2;
+    private static final int MAX_LOG_SIZE = 2; //max seconds
     public static final int DEFAULT_BPM = 70; //if there's only one start time in the log we return default
 
     private ArrayList<Long> compressionStartTimes;
@@ -23,7 +23,7 @@ public class BPMCalculator {
 
     public void registerCompressionStart(long time) {
         compressionStartTimes.add(time);
-        if(compressionStartTimes.size() > MAX_LOG_SIZE) {
+        while(compressionStartTimes.size() > MAX_LOG_SIZE) {
             compressionStartTimes.remove(0);
         }
     }
@@ -39,6 +39,7 @@ public class BPMCalculator {
     }
 
     public float calculateBPM() {
+
         if(compressionStartTimes.size() < 2) {
             return DEFAULT_BPM; //we need at least 2 values in the log to know the time of at least 1 compression cycle
         }

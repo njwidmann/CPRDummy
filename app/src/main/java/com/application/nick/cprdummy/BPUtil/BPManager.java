@@ -1,13 +1,11 @@
 
 package com.application.nick.cprdummy.BPUtil;
 
-import android.provider.ContactsContract;
 import android.util.Log;
 
 import java.util.ArrayList;
 
 import static java.lang.Math.max;
-import static java.lang.Math.pow;
 
 /**
  * Created by Nick on 8/9/2017.
@@ -21,18 +19,18 @@ public class BPManager {
     public static final int DATA_POINT_LOG_SIZE = 5;
     public static final int DEFAULT_AVG_DEPTH = 20;
 
-    public enum DEPTH_DIRECTION {
+    public enum DIRECTION {
         INCREASING, DECREASING, STRAIGHT
     }
 
-    private static final int STRAIGHT_TIMEOUT = 50; //after straight 50x in a row (5 sec), we are going to reset BPM and AvgDepth.
+    private static final long STRAIGHT_TIMEOUT = 5000; //after straight 5sec in a row (5 sec), we are going to reset BPM and AvgDepth.
 
     private float bpm;
     private float avgRelDepth;
     private float avgAbsDepth;
-    private int straightCounter;
-    private float maxSBP;
-    private float maxDBP;
+    private long straightStartTime;
+    private float sbp;
+    private float dbp;
     private float avgLeaningDepth;
 
     private ArrayList<DataPoint> dataPoints;
@@ -43,9 +41,7 @@ public class BPManager {
     EndTitleCalculator endTitleCalculator;
     LeaningCalculator leaningCalculator;
     DirectionCalculator directionCalculator;
-    BaselineBPCalculator baselineBPCalculator;
-    //SpeedCalculator speedCalculator;
-    //PeakSBPCalculator peakSBPCalculator;
+    PauseCalculator pauseCalculator;
 
     BPManager self;
 
@@ -58,8 +54,8 @@ public class BPManager {
         bpm = 0;
         avgRelDepth = DEFAULT_AVG_DEPTH;
         avgAbsDepth = DEFAULT_AVG_DEPTH;
-        maxSBP = 0;
-        maxDBP = 0;
+        sbp = 0;
+        dbp = 0;
         avgLeaningDepth = 0;
 
         avgDepthCalculator = new AvgDepthCalculator();
@@ -70,27 +66,26 @@ public class BPManager {
 
         leaningCalculator = new LeaningCalculator();
 
-        baselineBPCalculator = new BaselineBPCalculator();
+        pauseCalculator = new PauseCalculator();
 
-        directionCalculator = new DirectionCalculator(dataPoints) {
+        directionCalculator = new DirectionCalculator(dataPoints, DataPoint.VALUE_TYPE.DEPTH) {
 
             @Override
-            public void handleCompressionStart(int depth, long time) {
+            public void handleCycleStart(int depth, long time) {
                 Log.i(TAG, "COMPRESSION START");
                 bpmCalculator.registerCompressionStart(time);
                 bpm = bpmCalculator.calculateBPM();
-                baselineBPCalculator.registerCompressionStart(time, bpm);
+                pauseCalculator.registerCompressionStart(time, bpm);
                 avgDepthCalculator.registerCompressionStart(depth);
                 bpCalculator.registerCompressionStart(depth, avgRelDepth);
 
-                calculateMaxSBP(avgRelDepth);
-                calculateMaxDBP(avgRelDepth);
+                float sbp = calculateSBP(avgRelDepth, time);
+                float dbp = calculateDBP(avgRelDepth, time);
+
                 //update sbp and dbp for all the datapoints in the log that came before compression start was recognized.
                 //remember none of the datapoints in the log have been displayed yet.
-                float sbp = getSBP(time);
-                float dbp = getDBP(time);
                 for(int i = 0; i < dataPoints.size(); i++) {
-                    if(dataPoints.get(i).direction == DEPTH_DIRECTION.INCREASING) {
+                    if(dataPoints.get(i).depthDirection == DIRECTION.INCREASING) {
                         dataPoints.get(i).sbp = sbp;
                         dataPoints.get(i).dbp = dbp;
                     }
@@ -98,7 +93,7 @@ public class BPManager {
             }
 
             @Override
-            public void handleCompressionEnd(int depth, long time) {
+            public void handleCycleEnd(int depth, long time) {
                 Log.i(TAG, "COMPRESSION END");
                 avgRelDepth = avgDepthCalculator.calculateAvgRelativeCompressionDepth();
                 avgAbsDepth = avgDepthCalculator.calculateAvgAbsoluteCompressionDepth();
@@ -110,11 +105,11 @@ public class BPManager {
             }
 
             @Override
-            public void handleCompressionPeak(int depth, long time) {
+            public void handleCyclePeak(int depth, long time) {
                 Log.i(TAG, "PEAK DEPTH");
                 avgDepthCalculator.registerCompressionPeak(depth);
                 bpCalculator.registerCompressionPeak(depth);
-                endTitleCalculator.registerCompression(getSBP(time));
+                endTitleCalculator.registerCompression(getSBP());
             }
         };
 
@@ -123,18 +118,16 @@ public class BPManager {
     }
 
     public void addDataPoint(DataPoint dataPoint) {
-        dataPoint.sbp = getSBP(dataPoint.time);
-        dataPoint.dbp = getDBP(dataPoint.time);
+        dataPoint.sbp = getSBP();
+        dataPoint.dbp = getDBP();
         dataPoint.endTitle = endTitleCalculator.getEndTitle(dataPoint.time);
         dataPoints.add(dataPoint);
         directionCalculator.update(dataPoint);
 
-        if(dataPoint.direction == DEPTH_DIRECTION.STRAIGHT) {
-            straightCounter++;
-        } else {
-            straightCounter = 0;
+        if(dataPoint.depthDirection != DIRECTION.STRAIGHT) {
+            straightStartTime = dataPoint.time;
         }
-        if(straightCounter >= STRAIGHT_TIMEOUT) {
+        if(dataPoint.time - straightStartTime >= STRAIGHT_TIMEOUT) {
             handleStraightTimeout();
         }
     }
@@ -154,32 +147,46 @@ public class BPManager {
         avgRelDepth = DEFAULT_AVG_DEPTH;
         avgAbsDepth = DEFAULT_AVG_DEPTH;
         avgLeaningDepth = leaningCalculator.setLeaningToLatestValue();
-        maxSBP = 0;
-        maxDBP = 0;
+        sbp = 0;
+        dbp = 0;
         directionCalculator.reset();
-        baselineBPCalculator.refresh();
+        pauseCalculator.refresh();
     }
 
-    private float calculateMaxDBP(float depth) {
-        maxDBP = (float) DBPCalculator.getDBP(depth);
-        maxDBP = bpmCalculator.adjustPressureForBPM(maxDBP);
-        maxDBP = leaningCalculator.adjustDBPForLeaning(maxDBP);
-        return maxDBP;
+    /**
+     * call at the start of every compression
+     * @param depth current depth
+     * @param time current time
+     * @return dbp
+     */
+    private float calculateDBP(float depth, long time) {
+        dbp = (float) DBPCalculator.getDBP(depth);
+        dbp = bpmCalculator.adjustPressureForBPM(dbp);
+        dbp = leaningCalculator.adjustDBPForLeaning(dbp);
+        dbp = pauseCalculator.scaleBP(dbp, time);
+        return dbp;
     }
 
-    private float calculateMaxSBP(float depth) {
-        maxSBP = (float)SBPCalculator.getSBP(depth);
-        maxSBP = bpmCalculator.adjustPressureForBPM(maxSBP);
-        maxSBP = leaningCalculator.adjustSBPForLeaning(maxSBP);
-        return maxSBP;
+    /**
+     * call at the start of every compression
+     * @param depth current depth
+     * @param time current time
+     * @return sbp
+     */
+    private float calculateSBP(float depth, long time) {
+        sbp = (float)SBPCalculator.getSBP(depth);
+        sbp = bpmCalculator.adjustPressureForBPM(sbp);
+        sbp = leaningCalculator.adjustSBPForLeaning(sbp);
+        sbp = pauseCalculator.scaleBP(sbp, time);
+        return sbp;
     }
 
-    public float getDBP(long time) {
-        return baselineBPCalculator.scaleBP(maxDBP, time);
+    public float getDBP() {
+        return dbp;
     }
 
-    public float getSBP(long time) {
-        return baselineBPCalculator.scaleBP(maxSBP, time);
+    public float getSBP() {
+        return sbp;
     }
 
     public int getEndTitle() {
@@ -187,7 +194,7 @@ public class BPManager {
     }
 
     public float getBPM() {
-        return bpm;
+        return pauseCalculator.getAvgBPM();
     }
 
     public float getAvgLeaningDepth() {
@@ -196,7 +203,7 @@ public class BPManager {
 
     public float getPressure(DataPoint dataPoint) {
 
-        return bpCalculator.updateBP(dataPoint.depth, dataPoint.time, dataPoint.direction, dataPoint.sbp, dataPoint.dbp);
+        return bpCalculator.updateBP(dataPoint.depth, dataPoint.time, dataPoint.depthDirection, dataPoint.sbp, dataPoint.dbp);
 
     }
 

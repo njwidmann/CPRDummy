@@ -38,22 +38,22 @@ public class BPCalculator {
      * @param direction current moving depth direction (INCREASING, DECREASING, or STRAIGHT)
      * @return updated BP
      */
-    public float updateBP(int depth, long time, BPManager.DEPTH_DIRECTION direction, float sbp, float dbp) {
+    public float updateBP(int depth, long time, BPManager.DIRECTION direction, float sbp, float dbp) {
 
-        if(direction == BPManager.DEPTH_DIRECTION.INCREASING) {
+        if(direction == BPManager.DIRECTION.INCREASING) {
             //pressure = sbp;
             int depthDifference = depth - compressionStartDepth;
             if(avgDepth == 0) avgDepth = 50; //avoid divide by zero errors
             float x = depthDifference / avgDepth;
             pressure = increaseFunction(x) * (sbp - dbp) + dbp;
 
-        } else if (direction == BPManager.DEPTH_DIRECTION.DECREASING){
+        } else if (direction == BPManager.DIRECTION.DECREASING){
 
             float x = 1 - (float)depth / peakDepth;
             float pressureDifferential = peakPressure - dbp;
             pressure = pressureDifferential * decreaseFunction(x) + dbp;
 
-        } else if(direction == BPManager.DEPTH_DIRECTION.STRAIGHT && compressionEnded) {
+        } else if(direction == BPManager.DIRECTION.STRAIGHT && compressionEnded) {
 
             float elapsedTime = time - compressionEndTime;
             float pressureDifferential = dbp - BASELINE_BP;
@@ -98,7 +98,12 @@ public class BPCalculator {
     private float straightDecayFunction(float x) {
         double term1 = 1.0/(125 * Math.pow(x, 4) + 1);
         double term2 = Math.sin(17.0 * Math.PI * (x + 0.29)) / 10;
-        return (float)((term1 + term2 + 0.0921) / 1.192);
+        float frac = (float)((term1 + term2 + 0.0921) / 1.192);
+        if(x < 1) {
+            return frac;
+        } else {
+            return frac / x;
+        }
     }
 
     public void registerCompressionStart(int compressionStartDepth, float avgDepth) {
