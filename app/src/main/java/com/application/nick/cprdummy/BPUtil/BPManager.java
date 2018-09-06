@@ -17,20 +17,15 @@ public class BPManager {
 
     private static final String TAG = "BloodPressureManager";
 
-    //Because of data limitations
-    //private static final int MAX_BPM = 130;
-    //private static final int MIN_BPM = 70;
-    //private static final int MAX_DEPTH = 65;
-    //private static final int MIN_DEPTH = 5;
-
     public static final float BASELINE_BP = 5;
     public static final int DATA_POINT_LOG_SIZE = 5;
+    public static final int DEFAULT_AVG_DEPTH = 20;
 
     public enum DEPTH_DIRECTION {
         INCREASING, DECREASING, STRAIGHT
     }
 
-    private static final int STRAIGHT_TIMEOUT = 20; //after straight 20x in a row, we are going to reset BPM and AvgDepth.
+    private static final int STRAIGHT_TIMEOUT = 50; //after straight 50x in a row (5 sec), we are going to reset BPM and AvgDepth.
 
     private float bpm;
     private float avgRelDepth;
@@ -61,8 +56,8 @@ public class BPManager {
         dataPoints = new ArrayList<>();
 
         bpm = 0;
-        avgRelDepth = 0;
-        avgAbsDepth = 0;
+        avgRelDepth = DEFAULT_AVG_DEPTH;
+        avgAbsDepth = DEFAULT_AVG_DEPTH;
         maxSBP = 0;
         maxDBP = 0;
         avgLeaningDepth = 0;
@@ -77,18 +72,12 @@ public class BPManager {
 
         baselineBPCalculator = new BaselineBPCalculator();
 
-        //speedCalculator = new SpeedCalculator();
-
-        //peakSBPCalculator = new PeakSBPCalculator();
-
         directionCalculator = new DirectionCalculator(dataPoints) {
 
             @Override
             public void handleCompressionStart(int depth, long time) {
                 Log.i(TAG, "COMPRESSION START");
                 bpmCalculator.registerCompressionStart(time);
-                //peakSBPCalculator.registerCompressionStart();
-                //speedCalculator.registerCompressionStart(time, depth);
                 bpm = bpmCalculator.calculateBPM();
                 baselineBPCalculator.registerCompressionStart(time, bpm);
                 avgDepthCalculator.registerCompressionStart(depth);
@@ -133,11 +122,10 @@ public class BPManager {
 
     }
 
-    public void addDataPoint(long time, int depth) {
-        DataPoint dataPoint = new DataPoint(time, depth);
-        dataPoint.sbp = getSBP(time);
-        dataPoint.dbp = getDBP(time);
-        dataPoint.endTitle = endTitleCalculator.getEndTitle(time);
+    public void addDataPoint(DataPoint dataPoint) {
+        dataPoint.sbp = getSBP(dataPoint.time);
+        dataPoint.dbp = getDBP(dataPoint.time);
+        dataPoint.endTitle = endTitleCalculator.getEndTitle(dataPoint.time);
         dataPoints.add(dataPoint);
         directionCalculator.update(dataPoint);
 
@@ -163,8 +151,8 @@ public class BPManager {
         bpmCalculator.refreshBPM();
         bpm = 0;
         avgDepthCalculator.refreshAvgDepth();
-        avgRelDepth = 0;
-        avgAbsDepth = 0;
+        avgRelDepth = DEFAULT_AVG_DEPTH;
+        avgAbsDepth = DEFAULT_AVG_DEPTH;
         avgLeaningDepth = leaningCalculator.setLeaningToLatestValue();
         maxSBP = 0;
         maxDBP = 0;
@@ -174,15 +162,15 @@ public class BPManager {
 
     private float calculateMaxDBP(float depth) {
         maxDBP = (float) DBPCalculator.getDBP(depth);
-        bpmCalculator.adjustPressureForBPM(maxDBP);
-        maxDBP = leaningCalculator.adjustPressureForLeaning(maxDBP);
+        maxDBP = bpmCalculator.adjustPressureForBPM(maxDBP);
+        maxDBP = leaningCalculator.adjustDBPForLeaning(maxDBP);
         return maxDBP;
     }
 
     private float calculateMaxSBP(float depth) {
         maxSBP = (float)SBPCalculator.getSBP(depth);
-        bpmCalculator.adjustPressureForBPM(maxSBP);
-        maxSBP = leaningCalculator.adjustPressureForLeaning(maxSBP);
+        maxSBP = bpmCalculator.adjustPressureForBPM(maxSBP);
+        maxSBP = leaningCalculator.adjustSBPForLeaning(maxSBP);
         return maxSBP;
     }
 
@@ -221,9 +209,9 @@ public class BPManager {
 
     private static class DBPCalculator {
 
-        private static final double c1 = -.0004;
-        private static final double c2 = 0.0349;
-        private static final double c3 = -.2096;
+        private static final double c1 = -.00045097;
+        private static final double c2 = 0.0307429;
+        private static final double c3 = .24695878;
         private static final double c4 = BASELINE_BP;
 
         /**
@@ -238,8 +226,8 @@ public class BPManager {
 
     private static class SBPCalculator {
 
-        private static final double c1 = -.0268;
-        private static final double c2 = 2.9875;
+        private static final double c1 = -.0297;
+        private static final double c2 = 3.2635;
         private static final double c3 = BASELINE_BP;
 
 

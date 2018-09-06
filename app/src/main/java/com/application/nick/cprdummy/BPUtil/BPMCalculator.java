@@ -1,5 +1,7 @@
 package com.application.nick.cprdummy.BPUtil;
 
+import android.util.Log;
+
 import java.util.ArrayList;
 
 /**
@@ -8,11 +10,8 @@ import java.util.ArrayList;
 
 public class BPMCalculator {
 
-    private static final int MAX_LOG_SIZE = 5;
-    private static final int DEFAULT_BPM = 70; //if there's only one start time in the log we return default
-    private static final int LOW_ACCEPTABLE_BPM = 90;
-    private static final int HIGH_ACCEPTABLE_BPM = 130;
-    private static final float POOR_BPM_SCALE_FACTOR = 0.9f;
+    private static final int MAX_LOG_SIZE = 2;
+    public static final int DEFAULT_BPM = 70; //if there's only one start time in the log we return default
 
     private ArrayList<Long> compressionStartTimes;
     private float bpm;
@@ -53,10 +52,42 @@ public class BPMCalculator {
     }
 
     public float adjustPressureForBPM(float pressure) {
-        if(bpm < LOW_ACCEPTABLE_BPM || bpm > HIGH_ACCEPTABLE_BPM) {
-            return pressure * POOR_BPM_SCALE_FACTOR;
-        } else {
-            return pressure;
+        return pressure * (1 - getBPMPenaltyFactor(calculateBPM()));
+    }
+
+    private static final int[] RATE = {
+            0,
+            60,
+            90,
+            100,
+            120,
+            130,
+            160,
+            220,
+            300
+
+    };
+    private static final float[] PENALTY = {
+            0.5f,
+            0.5f,
+            .1f,
+            0,
+            0,
+            0.1f,
+            0.2f,
+            0.5f,
+            0.5f
+    };
+
+    private float getBPMPenaltyFactor(float rate) {
+        for(int i = 1; i < RATE.length; i++) {
+            if(rate < RATE[i]) {
+                float y0 = PENALTY[i-1];
+                float slope = (PENALTY[i] - PENALTY[i-1]) / (RATE[i] - RATE[i-1]);
+                float x = rate - RATE[i-1];
+                return slope * x + y0;
+            }
         }
+        return 1; //if rate > 300 or rate < 0, return 1
     }
 }

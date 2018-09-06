@@ -47,13 +47,16 @@ public class LeaningCalculator {
         return avgLeaningDepth;
     }
 
-    public float adjustPressureForLeaning(float pressure) {
-        if(avgLeaningDepth > 8) {
-            pressure *= 0.8f;
-        } else if (avgLeaningDepth > 4) {
-            pressure *= 0.9f;
-        }
-        return pressure;
+    public float adjustSBPForLeaning(float pressure) {
+        double leaningPenalty = .0237*Math.pow(Math.log(avgLeaningDepth+1), 1.62);
+
+        return (float)(pressure * (1-leaningPenalty));
+    }
+
+    public float adjustDBPForLeaning(float pressure) {
+        double leaningPenalty = .0501*Math.pow(Math.log(avgLeaningDepth+1), 1.62);
+
+        return (float)(pressure * (1-leaningPenalty));
     }
 
     public void refreshLeaning() {

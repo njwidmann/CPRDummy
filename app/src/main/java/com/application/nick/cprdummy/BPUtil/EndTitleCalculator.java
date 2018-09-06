@@ -11,20 +11,6 @@ public class EndTitleCalculator {
     private static final long HIGH_TIME = 4000L;
     private static final long LOW_TIME = 2000L;
 
-    private static final int[] SBP_RATINGS = {
-            50, // sbp <50 = bad
-            65, // sbp 50-65 = poor
-            80, // sbp 65-80 = average
-            200 //sbp >80 = excellent
-    };
-
-    private static final int[] END_TITLE = {
-            4, //sbp <50 -> ET=4
-            8,
-            15,
-            30
-    };
-
     private long cycleStartTime;
 
     private boolean low;
@@ -72,12 +58,7 @@ public class EndTitleCalculator {
      * @return high end title value
      */
     public int calculateMaxEndTitle() {
-        int sbpIndex = 0;
-        float avgSBP = getAvgSBP();
-        while(avgSBP > SBP_RATINGS[sbpIndex]) {
-            sbpIndex++;
-        }
-        return END_TITLE[sbpIndex];
+        return (int)(35.0/85 * getAvgSBP());
     }
 
     /**

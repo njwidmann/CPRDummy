@@ -1,6 +1,5 @@
 package com.application.nick.cprdummy;
 
-import android.provider.ContactsContract;
 import android.util.Log;
 
 import com.application.nick.cprdummy.BPUtil.BPManager;
@@ -18,12 +17,11 @@ public abstract class BPMonitor {
 
     private boolean RUNNING = true;
 
-    private ArrayList<Integer> depthLog = new ArrayList<>();
-    private ArrayList<Long> timeLog = new ArrayList<>();
+    private ArrayList<DataPoint> tempDataPointLog = new ArrayList<>();
     private long startTime = -1L;
-    private long lastLoggedSystemTime;
     private long lastLoggedTime = 0;
     private int lastLoggedDepth;
+    private int lastLoggedVents;
     private DataPoint lastLoggedDataPoint;
 
     BPManager bpManager;
@@ -35,18 +33,17 @@ public abstract class BPMonitor {
         new UpdateThread().start();
     }
 
-    public void updateDepth(long currentTime, int currentDepth) {
+    public void update(long currentTime, int currentDepth, int currentVents) {
         if(currentDepth < 0) currentDepth = 0;
-        if(currentTime > lastLoggedTime) { //we don't want to log any points out of order. There's a chance this could happen because we are creating straight data on Android
-            lastLoggedTime = currentTime;
-            lastLoggedDepth = currentDepth;
-            if (startTime < 0) {
-                startTime = currentTime;
-                lastLoggedSystemTime = getCurrentTime();
-            }
-            depthLog.add(currentDepth);
-            timeLog.add(currentTime);
+        if(currentVents < 0) currentVents = 0;
+
+        lastLoggedTime = currentTime;
+        lastLoggedDepth = currentDepth;
+        lastLoggedVents = currentVents;
+        if (startTime < 0) {
+            startTime = currentTime;
         }
+        tempDataPointLog.add(new DataPoint(currentTime, currentDepth, currentVents));
     }
 
     public float getBPM() { return bpManager.getBPM(); }
@@ -80,11 +77,10 @@ public abstract class BPMonitor {
         public void run() {
             while(RUNNING) {
 
-                if(timeLog.size() > 0 && depthLog.size() > 0) {
+                if(tempDataPointLog.size() > 0) {
                     try {
 
-                        bpManager.addDataPoint(timeLog.remove(0), depthLog.remove(0));
-                        lastLoggedSystemTime = getCurrentTime();
+                        bpManager.addDataPoint(tempDataPointLog.remove(0));
 
                         if(bpManager.isDataPointLogFull()) {
                             DataPoint dataPoint = bpManager.getNextDataPoint();
@@ -103,7 +99,7 @@ public abstract class BPMonitor {
                             //make waveform more smooth by plotting intermediate datapoints
                             if(lastLoggedDataPoint != null) {
                                 int deltaDepthTotal = dataPoint.depth - lastLoggedDataPoint.depth;
-                                if(deltaDepthTotal > 0) {
+                                if(Math.abs(deltaDepthTotal) > 1) {
                                     int deltaDepth = deltaDepthTotal / Math.abs(deltaDepthTotal);
                                     long deltaTime = dataPoint.time - lastLoggedDataPoint.time;
                                     deltaTime /= Math.abs(deltaDepthTotal);
@@ -112,12 +108,12 @@ public abstract class BPMonitor {
                                         int depth = lastLoggedDataPoint.depth + deltaDepth * i;
                                         DataPoint intermediateDataPoint = new DataPoint(time, depth, dataPoint);
                                         float intermediatePressure = bpManager.getPressure(intermediateDataPoint);
-                                        plotAll((intermediateDataPoint.time - startTime) / 1000f, intermediateDataPoint.depth, intermediatePressure, endTitle);
+                                        plotPressure((intermediateDataPoint.time - startTime) / 1000f, intermediatePressure);
                                     }
                                 }
                             }
                             //plot everything. We want to plot lastLoggedDepth so that the depth bar graph is real time. Everything else has a slight delay
-                            plotAll((dataPoint.time - startTime) / 1000f, lastLoggedDepth, pressure, endTitle);
+                            plotAll((dataPoint.time - startTime) / 1000f, lastLoggedDepth, lastLoggedVents, pressure, endTitle);
 
                             lastLoggedDataPoint = dataPoint;
                         }
@@ -125,17 +121,14 @@ public abstract class BPMonitor {
                     } catch(Exception ex) {
                         ex.printStackTrace();
                     }
-
-                } else if(getStartTime() > 0 && getCurrentTime() - lastLoggedSystemTime > 100) {
-                    //add straight data. arduino only logs on changes so we can assume constant depth if no update
-                    updateDepth(lastLoggedTime + 100, lastLoggedDepth);
                 }
             }
         }
     }
 
     public abstract void plotDepth(int depth);
+    public abstract void plotVents(int vents);
     public abstract void plotPressure(float time, float pressure);
     public abstract void plotEndTitle(float time, float endTitle);
-    public abstract void plotAll(float time, int depth, float pressure, float endTitle);
+    public abstract void plotAll(float time, int depth, int vents, float pressure, float endTitle);
 }

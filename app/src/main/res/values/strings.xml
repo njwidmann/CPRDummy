@@ -7,11 +7,20 @@
     <string name="chart_description_end_title">End Title CO2</string>
     <string name="chart_description_depth">Depth (mm)</string>
     <string name="none_paired">No devices have been paired</string>
-    <string name="BPM">BPM: </string>
-    <string name="C02">C02: </string>
-    <string name="AvgDepth">Average Depth: </string>
-    <string name="AvgLeaningDepth">Average Leaning:</string>
+    <string name="BPM">Rate (bpm): </string>
+    <string name="damping">Damping: </string>
+    <string name="CO2">CO2</string>
+    <string name="AvgDepth">Depth (mm): </string>
+    <string name="AvgLeaningDepth">Leaning (mm):</string>
     <string name="sbp_dbp">SBP/DBP</string>
     <string name="refresh_button">Refresh</string>
     <string name="x_scale_slider_label">X-Axis Scale:</string>
+    <string name="chart_description_vents">Ventilations</string>
+
+    <string-array name="training_levels">
+        <item>BEGINNER</item>
+        <item>INTERMEDIATE</item>
+        <item>EXPERT</item>
+        <item>DAMPING_TEST</item>
+    </string-array>
 </resources>

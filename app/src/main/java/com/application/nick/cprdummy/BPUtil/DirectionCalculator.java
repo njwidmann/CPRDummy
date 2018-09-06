@@ -7,10 +7,6 @@ import java.util.ArrayList;
  */
 
 public abstract class DirectionCalculator {
-    private static final long TIME_DELAY = 200; //ms
-    private static final int DEPTH_DIFFERENCE = 5;
-    //private static final float DEPTH_MOVING_BOUNDARY = 0.002f; //if slope is greater than positive val then increasing. less than negative then decreasing. else straight
-
     private ArrayList<DataPoint> dataPoints;
 
     private BPManager.DEPTH_DIRECTION previousDirection;
@@ -36,19 +32,11 @@ public abstract class DirectionCalculator {
 
     public BPManager.DEPTH_DIRECTION getDepthDirection() {
         if(previousDirection == null) {
-            return BPManager.DEPTH_DIRECTION.INCREASING; //must be increasing on start
+            return BPManager.DEPTH_DIRECTION.STRAIGHT; //must be straight on start
         }
 
-        int currentLogSize = dataPoints.size();
+        float slope = findSlope(dataPoints);
 
-        //if there was a big jump in depth in either direction we can assume increasing or decreasing
-        if(dataPoints.get(currentLogSize - 1).depth - dataPoints.get(currentLogSize - 2).depth > DEPTH_DIFFERENCE) {
-            return BPManager.DEPTH_DIRECTION.INCREASING;
-        } else if (dataPoints.get(currentLogSize - 2).depth - dataPoints.get(currentLogSize - 1).depth > DEPTH_DIFFERENCE) {
-            return BPManager.DEPTH_DIRECTION.DECREASING;
-        }
-        //finally, for other cases we check slope
-        float slope = (dataPoints.get(currentLogSize - 1).depth - dataPoints.get(0).depth) / (float)(dataPoints.get(currentLogSize - 1).time - dataPoints.get(0).time); //rise/run
         if(slope < 0) {
             return BPManager.DEPTH_DIRECTION.DECREASING;
         } else if(slope > 0) {
@@ -56,6 +44,30 @@ public abstract class DirectionCalculator {
         } else {
             return BPManager.DEPTH_DIRECTION.STRAIGHT;
         }
+    }
+
+    /**
+     * calculates trendline using this method
+     * https://classroom.synonym.com/calculate-trendline-2709.html
+     */
+    private float findSlope(ArrayList<DataPoint> data) {
+
+        int n = data.size();
+
+        float a = 0;
+        float b1 = 0;
+        float b2 = 0;
+        float c = 0;
+        for(int i = 0; i < n; i++) {
+            long time = data.get(i).time - data.get(0).time; //first time = 0
+            a += n * time * data.get(i).depth;
+            b1 += time;
+            b2 += data.get(i).depth;
+            c += n * time * time;
+        }
+        float b = b1*b2;
+        float d = b1*b1;
+        return (a-b)/(c-d);
     }
 
     private void handleDirectionChanges(BPManager.DEPTH_DIRECTION direction) {
