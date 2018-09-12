@@ -8,57 +8,50 @@ import java.util.ArrayList;
 
 public class EndTitleCalculator {
     private static final int LOW_VALUE = 0;
-    private static final long HIGH_TIME = 4000L;
-    private static final long LOW_TIME = 2000L;
 
-    private long cycleStartTime;
+    private static final long LOG_TIME = 10; //time we keep track of SBP for average, which affects ETCO2 val
 
-    private boolean low;
     private boolean high;
 
+    private ArrayList<Long> compressionStartTimes;
     private ArrayList<Float> sbpLog;
 
     private int highValue = 0;
 
     public EndTitleCalculator() {
-        cycleStartTime = 0;
-        low = true;
         high = false;
         sbpLog = new ArrayList<>();
+        compressionStartTimes = new ArrayList<>();
     }
 
-    public void registerCompression(float sbp) {
+    public void registerCompression(float sbp, long time) {
         sbpLog.add(sbp);
+        compressionStartTimes.add(time);
+
+        // while: log size > 0 and time of the earliest logged is > LOG_TIME sec ago.... remove from log
+        while (compressionStartTimes.size() > 0 &&
+                time - compressionStartTimes.get(0) > LOG_TIME * 1000) {
+            compressionStartTimes.remove(0);
+            sbpLog.remove(0);
+        }
     }
 
-    public int getEndTitle(long currentTime) {
-
+    public int getEndTitle() {
         //handle breathing cycle changes
-        if (low && currentTime - cycleStartTime > LOW_TIME) {
-            low = false;
-            high = true;
-            cycleStartTime = currentTime;
-            highValue = calculateMaxEndTitle(); //recalculate after every cycle based on the average sbp from that cycle
-            clearSBPLog(); //clear log so we can start fresh for the next cycle
-        } else if (high && currentTime - cycleStartTime > HIGH_TIME) {
-            high = false;
-            low = true;
-            cycleStartTime = currentTime;
-        }
-        if (low) {
-            return LOW_VALUE;
-        } else {
+        if (high) {
             return highValue;
+        } else {
+            return LOW_VALUE;
         }
     }
 
-    /**
-     * This method finds the correct high end title value based on last breathing cycle's average sbp.
-     * If the log is empty, returns lowest value.
-     * @return high end title value
-     */
-    public int calculateMaxEndTitle() {
-        return (int)(35.0/85 * getAvgSBP());
+    public void setHigh(float ventRate) {
+        high = true;
+        highValue = (int)BPFunctions.calculateEndTidal(getAvgSBP(), ventRate);
+    }
+
+    public void setLow() {
+        high = false;
     }
 
     /**
@@ -86,5 +79,9 @@ public class EndTitleCalculator {
      */
     public int getHighValue() {
         return highValue;
+    }
+
+    public void refresh() {
+        //clearSBPLog();
     }
 }

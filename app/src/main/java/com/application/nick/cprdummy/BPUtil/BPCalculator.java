@@ -20,8 +20,8 @@ public class BPCalculator {
     private float peakPressure;
     private long compressionEndTime;
     private int peakDepth;
-    boolean compressionStarted;
-    boolean compressionEnded;
+    private boolean compressionStarted;
+    private boolean compressionEnded;
 
     public BPCalculator() {
         pressure = BASELINE_BP;
@@ -38,72 +38,35 @@ public class BPCalculator {
      * @param direction current moving depth direction (INCREASING, DECREASING, or STRAIGHT)
      * @return updated BP
      */
-    public float updateBP(int depth, long time, BPManager.DIRECTION direction, float sbp, float dbp) {
+    public float updateBP(int depth, long time, DirectionCalculator.DIRECTION direction, float sbp, float dbp) {
 
-        if(direction == BPManager.DIRECTION.INCREASING) {
+        if(direction == DirectionCalculator.DIRECTION.INCREASING) {
             //pressure = sbp;
             int depthDifference = depth - compressionStartDepth;
             if(avgDepth == 0) avgDepth = 50; //avoid divide by zero errors
             float x = depthDifference / avgDepth;
-            pressure = increaseFunction(x) * (sbp - dbp) + dbp;
+            pressure = BPFunctions.increaseFunction(x) * (sbp - dbp) + dbp;
 
-        } else if (direction == BPManager.DIRECTION.DECREASING){
+        } else if (direction == DirectionCalculator.DIRECTION.DECREASING){
 
             float x = 1 - (float)depth / peakDepth;
             float pressureDifferential = peakPressure - dbp;
-            pressure = pressureDifferential * decreaseFunction(x) + dbp;
+            pressure = pressureDifferential * BPFunctions.decreaseFunction(x) + dbp;
 
-        } else if(direction == BPManager.DIRECTION.STRAIGHT && compressionEnded) {
+        } else if(direction == DirectionCalculator.DIRECTION.STRAIGHT && compressionEnded) {
 
             float elapsedTime = time - compressionEndTime;
             float pressureDifferential = dbp - BASELINE_BP;
-            pressure = pressureDifferential * straightDecayFunction(elapsedTime / DECAY_TIME) + BASELINE_BP;
+            pressure = pressureDifferential * BPFunctions.straightDecayFunction(elapsedTime / DECAY_TIME) + BASELINE_BP;
         }
 
         if(pressure < BASELINE_BP) {
             pressure = BASELINE_BP;
         }
 
-        Log.i(TAG, "Time = " + time + "; Depth = " + depth + "; AvgDepth = " + avgDepth + "; Pressure = " + pressure + "; SBP = " + sbp + "; DBP = " + dbp);
+        //Log.i(TAG, "Time = " + time + "; Depth = " + depth + "; AvgDepth = " + avgDepth + "; Pressure = " + pressure + "; SBP = " + sbp + "; DBP = " + dbp);
 
         return pressure;
-    }
-
-    /**
-     * arbitrary function to simulate the behaviour of the BP waveform during compression
-     * @param x relative depth difference / average relative depth
-     * @return
-     */
-    private float increaseFunction(float x) {
-        return (float)(-1.1/(10*Math.pow(x,2) + 1) + 1.1);
-    }
-
-    /**
-     * arbitrary function to simulate the behaviour of the BP waveform during expansion
-     * @param x 1 - depth / peakDepth
-     * @return pressure fraction of (peak pressure - dbp)
-     */
-    private float decreaseFunction(float x) {
-        double x2 = 4.5*x + .135;
-        double term1 = 1.0/(150.0 * Math.pow(x2, 4) + 1);
-        double term2 = Math.sin(x2)/Math.sqrt(x2) + .463;
-        return (float)((term1 + term2) / 1.782);
-    }
-
-    /**
-     * arbitrary function to simulate the behaviour of the BP waveform during pause after expansion
-     * @param x elapsed time/DECAY_TIME
-     * @return pressure fraction of (dbp - baseline pressure)
-     */
-    private float straightDecayFunction(float x) {
-        double term1 = 1.0/(125 * Math.pow(x, 4) + 1);
-        double term2 = Math.sin(17.0 * Math.PI * (x + 0.29)) / 10;
-        float frac = (float)((term1 + term2 + 0.0921) / 1.192);
-        if(x < 1) {
-            return frac;
-        } else {
-            return frac / x;
-        }
     }
 
     public void registerCompressionStart(int compressionStartDepth, float avgDepth) {

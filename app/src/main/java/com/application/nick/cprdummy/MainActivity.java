@@ -92,7 +92,7 @@ public class MainActivity extends Activity {
 
     private BPMonitor bpMonitor;
 
-    private TextView sbpdbpTextField, bpmTextField, avgDepthTextField, avgLeaningDepthTextField, co2TextField, dampingTextField, dampingLabel;
+    private TextView sbpdbpTextField, bpmTextField, avgDepthTextField, avgLeaningDepthTextField, co2TextField, dampingTextField, dampingLabel, ventRateTextField;
 
     private int negativeDepthOffset = 0;
 
@@ -343,7 +343,7 @@ public class MainActivity extends Activity {
                         recDataString.delete(0, recDataString.length());
                     }
 
-                    Log.i(TAG, recDataString.toString());
+                    //Log.i(TAG, recDataString.toString());
 
                     int startOfLineIndex = recDataString.indexOf("#"); //determine start-of-line
                     if (startOfLineIndex >= 0) { // make sure there is a '#'
@@ -411,6 +411,7 @@ public class MainActivity extends Activity {
                         updateSBPDBPIndicator();
                         updateCO2Indicator();
                         updateDampingIndicator(damping);
+                        updateVentRateIndicator();
                     }
                 });
             }
@@ -425,6 +426,7 @@ public class MainActivity extends Activity {
         dampingLabel = (TextView) findViewById(R.id.damping_label);
         dampingTextField.setVisibility(View.INVISIBLE);
         dampingLabel.setVisibility(View.INVISIBLE);
+        ventRateTextField = (TextView) findViewById(R.id.vent_rate_textfield);
 
     }
 
@@ -489,6 +491,10 @@ public class MainActivity extends Activity {
     public void updateDampingIndicator(int damping) {
         dampingTextField.setText(String.valueOf(damping));
     }
+
+    public void updateVentRateIndicator() {
+        ventRateTextField.setText(String.valueOf((int) bpMonitor.getVentRate()));
+    }
     /**
      * clear all data and refresh axes and pressure
      */
@@ -505,6 +511,7 @@ public class MainActivity extends Activity {
         avgDepthTextField.setText(String.valueOf(0));
         avgLeaningDepthTextField.setText(String.valueOf(0));
         dampingTextField.setText(String.valueOf(0));
+        ventRateTextField.setText(String.valueOf(0));
 
         //create starting points
         entriesDepth.add(new BarEntry(0, 0));

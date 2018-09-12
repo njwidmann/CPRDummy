@@ -7,9 +7,14 @@ import java.util.ArrayList;
  */
 
 public abstract class DirectionCalculator {
+
+    public enum DIRECTION {
+        INCREASING, DECREASING, STRAIGHT
+    }
+
     private ArrayList<DataPoint> dataPoints;
 
-    private BPManager.DIRECTION previousDirection;
+    private DIRECTION previousDirection;
 
     private boolean cycleStarted;
 
@@ -25,27 +30,27 @@ public abstract class DirectionCalculator {
     /**
      * call this after making changes to dataPoints list
      */
-    public BPManager.DIRECTION update(DataPoint latestDataPoint) {
-        BPManager.DIRECTION direction = getDirection(); //get direction of motion of latest points
+    public DIRECTION update(DataPoint latestDataPoint) {
+        DIRECTION direction = getDirection(); //get direction of motion of latest points
         latestDataPoint.setDirection(value_type, direction);
 
         handleDirectionChanges(direction);
         return direction;
     }
 
-    public BPManager.DIRECTION getDirection() {
+    public DIRECTION getDirection() {
         if(previousDirection == null) {
-            return BPManager.DIRECTION.STRAIGHT; //must be straight on start
+            return DIRECTION.STRAIGHT; //must be straight on start
         }
 
         float slope = findSlope(dataPoints);
 
         if(slope < 0) {
-            return BPManager.DIRECTION.DECREASING;
+            return DIRECTION.DECREASING;
         } else if(slope > 0) {
-            return BPManager.DIRECTION.INCREASING;
+            return DIRECTION.INCREASING;
         } else {
-            return BPManager.DIRECTION.STRAIGHT;
+            return DIRECTION.STRAIGHT;
         }
     }
 
@@ -73,8 +78,8 @@ public abstract class DirectionCalculator {
         return (a-b)/(c-d);
     }
 
-    private void handleDirectionChanges(BPManager.DIRECTION direction) {
-        if( !cycleStarted && direction == BPManager.DIRECTION.INCREASING && (previousDirection == null || previousDirection == BPManager.DIRECTION.DECREASING || previousDirection == BPManager.DIRECTION.STRAIGHT )) {
+    private void handleDirectionChanges(DIRECTION direction) {
+        if( !cycleStarted && direction == DIRECTION.INCREASING && (previousDirection == null || previousDirection == DIRECTION.DECREASING || previousDirection == DIRECTION.STRAIGHT )) {
             // since the logsize is relatively large, we might not register the cycle start until
             // a few values after it has happened. We want to make sure we are getting the true
             // cycle start value, which will be at the minimum logged value
@@ -82,34 +87,34 @@ public abstract class DirectionCalculator {
 
             //set all the datapoints in the log after min to increasing
             for(int i = minIndex + 1; i < dataPoints.size(); i++) {
-                dataPoints.get(i).setDirection(value_type, BPManager.DIRECTION.INCREASING);
+                dataPoints.get(i).setDirection(value_type, DIRECTION.INCREASING);
             }
 
             handleCycleStart(dataPoints.get(minIndex).getValue(value_type), dataPoints.get(minIndex).time);
             cycleStarted = true;
-        } else if ( cycleStarted && (direction == BPManager.DIRECTION.STRAIGHT || direction == BPManager.DIRECTION.INCREASING)  && (previousDirection == BPManager.DIRECTION.DECREASING)) {
+        } else if ( cycleStarted && (direction == DIRECTION.STRAIGHT || direction == DIRECTION.INCREASING)  && (previousDirection == DIRECTION.DECREASING)) {
             //same thing for compression end, we want to make sure we get the true end values
             int minIndex = getMinLogIndex();
 
             //set all the datapoints in the log before and including min to decreasing
             for(int i = 0; i <= minIndex; i++) {
-                dataPoints.get(i).setDirection(value_type, BPManager.DIRECTION.DECREASING);
+                dataPoints.get(i).setDirection(value_type, DIRECTION.DECREASING);
             }
 
             handleCycleEnd(dataPoints.get(minIndex).getValue(value_type), dataPoints.get(minIndex).time);
             cycleStarted = false;
-            if(direction == BPManager.DIRECTION.INCREASING) {
+            if(direction == DIRECTION.INCREASING) {
                 //might now be increasing again already after previous cycle ends
                 handleCycleStart(dataPoints.get(minIndex).getValue(value_type), dataPoints.get(minIndex).time);
                 cycleStarted = true;
             }
-        } else if (cycleStarted && previousDirection == BPManager.DIRECTION.INCREASING && (direction == BPManager.DIRECTION.STRAIGHT || direction == BPManager.DIRECTION.DECREASING)) {
+        } else if (cycleStarted && previousDirection == DIRECTION.INCREASING && (direction == DIRECTION.STRAIGHT || direction == DIRECTION.DECREASING)) {
             //same for compression peak, we want to make sure we get the true peak values
             int maxIndex = getMaxLogIndex();
 
             //set all the datapoints in the log before and including max depth to increasing
             for(int i = 0; i <= maxIndex; i++) {
-                dataPoints.get(i).setDirection(value_type, BPManager.DIRECTION.INCREASING);
+                dataPoints.get(i).setDirection(value_type, DIRECTION.INCREASING);
             }
 
             handleCyclePeak(dataPoints.get(maxIndex).getValue(value_type), dataPoints.get(maxIndex).time);
@@ -154,4 +159,13 @@ public abstract class DirectionCalculator {
     public abstract void handleCycleStart(int value, long time);
     public abstract void handleCycleEnd(int value, long time);
     public abstract void handleCyclePeak(int value, long time);
+
+    public static String getDirectionString(DIRECTION direction) {
+        switch (direction) {
+            case INCREASING: return "INCREASING";
+            case DECREASING: return "DECREASING";
+            default: return "STRAIGHT";
+        }
+
+    }
 }

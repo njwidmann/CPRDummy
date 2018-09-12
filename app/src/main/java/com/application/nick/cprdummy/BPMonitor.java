@@ -4,6 +4,7 @@ import android.util.Log;
 
 import com.application.nick.cprdummy.BPUtil.BPManager;
 import com.application.nick.cprdummy.BPUtil.DataPoint;
+import com.application.nick.cprdummy.BPUtil.DirectionCalculator;
 
 import java.util.ArrayList;
 
@@ -19,7 +20,6 @@ public abstract class BPMonitor {
 
     private ArrayList<DataPoint> tempDataPointLog = new ArrayList<>();
     private long startTime = -1L;
-    private long lastLoggedTime = 0;
     private int lastLoggedDepth;
     private int lastLoggedVents;
     private DataPoint lastLoggedDataPoint;
@@ -37,13 +37,13 @@ public abstract class BPMonitor {
         if(currentDepth < 0) currentDepth = 0;
         if(currentVents < 0) currentVents = 0;
 
-        lastLoggedTime = currentTime;
         lastLoggedDepth = currentDepth;
         lastLoggedVents = currentVents;
         if (startTime < 0) {
             startTime = currentTime;
         }
-        tempDataPointLog.add(new DataPoint(currentTime, currentDepth, currentVents));
+        DataPoint nextDataPoint = new DataPoint(currentTime, currentDepth, currentVents);
+        tempDataPointLog.add(nextDataPoint);
     }
 
     public float getBPM() { return bpManager.getBPM(); }
@@ -54,14 +54,7 @@ public abstract class BPMonitor {
     public int getEndTitle() {
         return bpManager.getEndTitle();
     }
-
-    private long getStartTime() {
-        return startTime;
-    }
-
-    private long getCurrentTime() {
-        return System.nanoTime() / 1000000;
-    }
+    public float getVentRate() { return bpManager.getVentRate(); }
 
     public void refresh() {
         startTime = -1L;
@@ -77,46 +70,46 @@ public abstract class BPMonitor {
         public void run() {
             while(RUNNING) {
 
-                if(tempDataPointLog.size() > 0) {
+                if(tempDataPointLog.size() > 1) {
                     try {
+                        sleep(10);
+                        //System.out.println("DataPoint log size = " + tempDataPointLog.size());
+                        DataPoint nextDataPoint = tempDataPointLog.remove(0);
+                        if(nextDataPoint != null) {
+                            bpManager.addDataPoint(nextDataPoint);
 
-                        bpManager.addDataPoint(tempDataPointLog.remove(0));
 
-                        if(bpManager.isDataPointLogFull()) {
-                            DataPoint dataPoint = bpManager.getNextDataPoint();
+                            if (bpManager.isDataPointLogFull()) {
+                                DataPoint dataPoint = bpManager.getNextDataPoint();
 
-                            BPManager.DIRECTION direction = dataPoint.depthDirection;
-                            float pressure = bpManager.getPressure(dataPoint);
-                            float endTitle = dataPoint.endTitle;
-                            if (direction == BPManager.DIRECTION.INCREASING) {
-                                Log.i(TAG, "Time = " + dataPoint.time + "; Depth = " + dataPoint.depth + "; Direction = INCREASING; BPM = " + bpManager.getBPM() + "; AvgDepth = " + bpManager.getAvgRelativeDepth() + "; Pressure = " + pressure + "; SBP = " + dataPoint.sbp + "; DBP = " + dataPoint.dbp);
-                            } else if (direction == BPManager.DIRECTION.DECREASING) {
-                                Log.i(TAG, "Time = " + dataPoint.time + "; Depth = " + dataPoint.depth + "; Direction = DECREASING; BPM = " + bpManager.getBPM() + "; AvgDepth = " + bpManager.getAvgRelativeDepth() + "; Pressure = " + pressure + "; SBP = " + dataPoint.sbp + "; DBP = " + dataPoint.dbp);
-                            } else {
-                                Log.i(TAG, "Time = " + dataPoint.time + "; Depth = " + dataPoint.depth + "; Direction = STRAIGHT; BPM = " + bpManager.getBPM() + "; AvgDepth = " + bpManager.getAvgRelativeDepth() + "; Pressure = " + pressure + "; SBP = " + dataPoint.sbp + "; DBP = " + dataPoint.dbp);
-                            }
+                                float pressure = bpManager.getPressure(dataPoint);
+                                float endTitle = dataPoint.endTitle;
+                                //Log.i(TAG, dataPoint.toString());
 
-                            //make waveform more smooth by plotting intermediate datapoints
-                            if(lastLoggedDataPoint != null) {
-                                int deltaDepthTotal = dataPoint.depth - lastLoggedDataPoint.depth;
-                                if(Math.abs(deltaDepthTotal) > 1) {
-                                    int deltaDepth = deltaDepthTotal / Math.abs(deltaDepthTotal);
-                                    long deltaTime = dataPoint.time - lastLoggedDataPoint.time;
-                                    deltaTime /= Math.abs(deltaDepthTotal);
-                                    for (int i = 1; i < Math.abs(deltaDepthTotal); i++) {
-                                        long time = lastLoggedDataPoint.time + deltaTime * i;
-                                        int depth = lastLoggedDataPoint.depth + deltaDepth * i;
-                                        DataPoint intermediateDataPoint = new DataPoint(time, depth, dataPoint);
-                                        float intermediatePressure = bpManager.getPressure(intermediateDataPoint);
-                                        plotPressure((intermediateDataPoint.time - startTime) / 1000f, intermediatePressure);
+                                //make waveform more smooth by plotting intermediate datapoints
+                                if (lastLoggedDataPoint != null) {
+                                    int deltaDepthTotal = dataPoint.depth - lastLoggedDataPoint.depth;
+                                    if (Math.abs(deltaDepthTotal) > 1) {
+                                        int deltaDepth = deltaDepthTotal / Math.abs(deltaDepthTotal);
+                                        long deltaTime = dataPoint.time - lastLoggedDataPoint.time;
+                                        deltaTime /= Math.abs(deltaDepthTotal);
+                                        for (int i = 1; i < Math.abs(deltaDepthTotal); i++) {
+                                            long time = lastLoggedDataPoint.time + deltaTime * i;
+                                            int depth = lastLoggedDataPoint.depth + deltaDepth * i;
+                                            DataPoint intermediateDataPoint = new DataPoint(time, depth, dataPoint);
+                                            float intermediatePressure = bpManager.getPressure(intermediateDataPoint);
+                                            plotPressure((intermediateDataPoint.time - startTime) / 1000f, intermediatePressure);
+                                        }
                                     }
                                 }
-                            }
-                            //plot everything. We want to plot lastLoggedDepth so that the depth bar graph is real time. Everything else has a slight delay
-                            plotAll((dataPoint.time - startTime) / 1000f, lastLoggedDepth, lastLoggedVents, pressure, endTitle);
+                                // plot everything. We want to plot lastLoggedDepth and lastLoggedVents
+                                // so that the depth and vents bar graphs are real time. Everything else
+                                // has a slight delay
+                                plotAll((dataPoint.time - startTime) / 1000f, lastLoggedDepth, lastLoggedVents, pressure, endTitle);
 
-                            lastLoggedDataPoint = dataPoint;
-                        }
+                                lastLoggedDataPoint = dataPoint;
+                            }
+                       }
 
                     } catch(Exception ex) {
                         ex.printStackTrace();

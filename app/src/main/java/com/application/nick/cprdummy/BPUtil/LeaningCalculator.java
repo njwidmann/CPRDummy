@@ -47,18 +47,6 @@ public class LeaningCalculator {
         return avgLeaningDepth;
     }
 
-    public float adjustSBPForLeaning(float pressure) {
-        double leaningPenalty = .0237*Math.pow(Math.log(avgLeaningDepth+1), 1.62);
-
-        return (float)(pressure * (1-leaningPenalty));
-    }
-
-    public float adjustDBPForLeaning(float pressure) {
-        double leaningPenalty = .0501*Math.pow(Math.log(avgLeaningDepth+1), 1.62);
-
-        return (float)(pressure * (1-leaningPenalty));
-    }
-
     public void refreshLeaning() {
         leaningDepths.clear();
         avgLeaningDepth = 0;

@@ -88,7 +88,7 @@
             xmlns:android="http://schemas.android.com/apk/res/android"
             android:layout_width="0dp"
             android:layout_height="0dp"
-            android:rowCount="6"
+            android:rowCount="7"
             android:columnCount="2"
             android:layout_row="0"
             android:layout_rowSpan="2"
@@ -105,7 +105,7 @@
                 android:labelFor="@+id/avgdepth_textfield"
                 android:textColor="@color/green"
                 android:textSize="25sp"
-                android:paddingTop="60dp"
+                android:paddingTop="30dp"
                 android:layout_row="0"
                 android:layout_column="0"/>
             <TextView
@@ -154,7 +154,26 @@
                 android:textColor="@color/green"
                 android:layout_row="2"
                 android:layout_column="1"
-                android:paddingBottom="10dp"
+                android:textSize="25sp"
+                android:paddingStart="20dp"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/vent_rate"
+                android:labelFor="@+id/vent_rate_textfield"
+                android:textColor="@color/green"
+                android:layout_row="3"
+                android:layout_column="0"
+                android:paddingTop="10dp"
+                android:textSize="25sp"/>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:id="@+id/vent_rate_textfield"
+                android:textColor="@color/green"
+                android:layout_row="3"
+                android:layout_column="1"
                 android:textSize="25sp"
                 android:paddingStart="20dp"/>
 
@@ -165,7 +184,7 @@
                 android:text="@string/damping"
                 android:labelFor="@+id/damping_textfield"
                 android:textColor="@color/green"
-                android:layout_row="3"
+                android:layout_row="4"
                 android:layout_column="0"
                 android:paddingTop="10dp"
                 android:textSize="25sp"/>
@@ -174,7 +193,7 @@
                 android:layout_height="wrap_content"
                 android:id="@+id/damping_textfield"
                 android:textColor="@color/green"
-                android:layout_row="3"
+                android:layout_row="4"
                 android:layout_column="1"
                 android:paddingBottom="10dp"
                 android:textSize="25sp"
@@ -184,7 +203,7 @@
                 android:id="@+id/chartDepth"
                 android:layout_width="match_parent"
                 android:layout_height="200dp"
-                android:layout_row="4"
+                android:layout_row="5"
                 android:layout_column="0"
                 android:layout_columnSpan="2"
                 android:background="@color/black"/>
@@ -193,7 +212,7 @@
                 android:id="@+id/chartVents"
                 android:layout_width="match_parent"
                 android:layout_height="200dp"
-                android:layout_row="5"
+                android:layout_row="6"
                 android:layout_column="0"
                 android:layout_columnSpan="2"
                 android:background="@color/black"/>

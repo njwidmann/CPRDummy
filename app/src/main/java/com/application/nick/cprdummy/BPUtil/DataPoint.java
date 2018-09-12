@@ -10,9 +10,10 @@ public class DataPoint {
     public int depth;
     public int endTitle;
     public int vents;
-    public BPManager.DIRECTION depthDirection, ventsDirection;
+    public DirectionCalculator.DIRECTION depthDirection, ventsDirection;
     public float sbp;
     public float dbp;
+    public float bp;
 
     public enum VALUE_TYPE {DEPTH, VENTS}
 
@@ -43,7 +44,7 @@ public class DataPoint {
         }
     }
 
-    public void setDirection(VALUE_TYPE valueType, BPManager.DIRECTION direction) {
+    public void setDirection(VALUE_TYPE valueType, DirectionCalculator.DIRECTION direction) {
         if(valueType == VALUE_TYPE.DEPTH) {
             depthDirection = direction;
         } else if (valueType == VALUE_TYPE.VENTS) {
@@ -51,13 +52,21 @@ public class DataPoint {
         }
     }
 
-    public BPManager.DIRECTION getDirection(VALUE_TYPE valueType) {
+    public DirectionCalculator.DIRECTION getDirection(VALUE_TYPE valueType) {
         if(valueType == VALUE_TYPE.DEPTH) {
             return depthDirection;
         } else if (valueType == VALUE_TYPE.VENTS) {
             return ventsDirection;
         } else {
-            return BPManager.DIRECTION.STRAIGHT; //just return straight by default
+            return DirectionCalculator.DIRECTION.STRAIGHT; //just return straight by default
         }
+    }
+
+    @Override
+    public String toString() {
+        return "Time = " + time + "; Depth = " + depth + "; Vents = " + vents + "; DepthDirection = " +
+                DirectionCalculator.getDirectionString(depthDirection) + "; VentsDirection = " +
+                DirectionCalculator.getDirectionString(ventsDirection) + "; BP = " + bp + "; SBP = " +
+                sbp + "; DBP = " + dbp;
     }
 }

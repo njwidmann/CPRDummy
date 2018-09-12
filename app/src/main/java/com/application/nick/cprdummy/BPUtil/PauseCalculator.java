@@ -6,13 +6,14 @@ import java.util.ArrayList;
 
 /**
  * Created by Nick on 8/17/2017.
- * This class handles
+ * This class handles pause time calculations by keeping a running average of instantaneous rates
+ * during the last n seconds. It also provides a better representation of rate for user display
+ * because it averages it over the last n seconds.
  */
 
 public class PauseCalculator {
 
     private static final long LOG_TIME = 5;
-    private static final float BASELINE_BP = BPManager.BASELINE_BP;
 
     private ArrayList<Long> compressionStartTimes;
     private ArrayList<Float> bpmLog;
@@ -31,18 +32,23 @@ public class PauseCalculator {
      */
     public void registerCompressionStart(long time, float bpm) {
         bpmLog.add(bpm);
-        Log.i("BaselineBPCalculator", "bpmLog = " + bpmLog);
         compressionStartTimes.add(time);
+
+        // while: log size > 0 and time of the earliest logged is > LOG_TIME sec ago.... remove from log
+        while (compressionStartTimes.size() > 0 &&
+                time - compressionStartTimes.get(0) > LOG_TIME * 1000) {
+            compressionStartTimes.remove(0);
+            bpmLog.remove(0);
+        }
     }
 
     /**
-     * we calculate a pause penalty as a function of (average rate over last 5 seconds) / (max instantaneous
-     * rate over the last 5 seconds)
-     * @return BP scale factor between 0 and 1. 1 = no pause penalty
+     * Pause fraction representing: (average rate over last 5 seconds) / (max instantaneous
+     * rate over the last 5 seconds) ... 1 = no pause
+     * @return pause fraction
      */
-    private float calculateBPScaleFactor() {
-        float x = getAvgBPM() / getMaxBPM();
-        return -1f / (125 * (float)Math.pow(x, 4) + 3f) + 1;
+    public float getPauseFraction() {
+        return getAvgBPM() / getMaxBPM();
     }
 
     public float getAvgBPM() {
@@ -61,19 +67,7 @@ public class PauseCalculator {
         return maxBPM;
     }
 
-    public float scaleBP(float bp, long time) {
 
-        while (compressionStartTimes.size() > 0 && //log size > 0
-                time - compressionStartTimes.get(0) > LOG_TIME * 1000) { // and time of the earliest logged is > 5sec ago.... remove from log
-            compressionStartTimes.remove(0);
-            bpmLog.remove(0);
-        }
-
-        float bpDifferential = bp - BASELINE_BP;
-        if(bpDifferential < 0) bpDifferential = 0;
-
-        return calculateBPScaleFactor() * bpDifferential + BASELINE_BP;
-    }
 
     public void refresh() {
         compressionStartTimes.clear();

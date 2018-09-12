@@ -7,7 +7,8 @@
     <string name="chart_description_end_title">End Title CO2</string>
     <string name="chart_description_depth">Depth (mm)</string>
     <string name="none_paired">No devices have been paired</string>
-    <string name="BPM">Rate (bpm): </string>
+    <string name="BPM">CC Rate: </string>
+    <string name="vent_rate">Vent Rate: </string>
     <string name="damping">Damping: </string>
     <string name="CO2">CO2</string>
     <string name="AvgDepth">Depth (mm): </string>
