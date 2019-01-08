@@ -42,7 +42,6 @@ public class BPManager extends MechanicalManager {
         super.handleStraightTimeout();
         sbp = 0;
         dbp = 0;
-        endTitleCalculator.refresh();
     }
 
     protected void registerCompressionStart(int depth, long time) {
@@ -73,7 +72,7 @@ public class BPManager extends MechanicalManager {
 
     protected void registerVentStart(int depth, long time) {
         super.registerVentStart(depth, time);
-        endTitleCalculator.setHigh(getVentRate());
+        endTitleCalculator.setLow();
     }
     protected void registerVentPeak(int depth, long time) {
         super.registerVentPeak(depth, time);

@@ -105,7 +105,6 @@ public class MechanicalManager {
         avgLeaningDepth = leaningCalculator.setLeaningToLatestValue();
         depthDirectionCalculator.reset();
         pauseCalculator.refresh();
-        ventRateCalculator.refresh();
     }
 
     protected void registerCompressionStart(int depth, long time) {
@@ -127,7 +126,7 @@ public class MechanicalManager {
         System.out.println("VENT START");
     }
     protected void registerVentPeak(int depth, long time) {
-        ventRateCalculator.registerVent(time);
+        ventRateCalculator.registerVent();
         System.out.println("VENT PEAK");
     }
     protected void registerVentEnd(int depth, long time) {

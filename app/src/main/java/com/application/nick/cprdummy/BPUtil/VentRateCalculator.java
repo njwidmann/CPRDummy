@@ -19,24 +19,21 @@ public class VentRateCalculator {
 
     /**
      * call this at the every ventilation so that we can measure ventilation rate
-     * @param time vent time
      */
-    public void registerVent(long time) {
-        ventStartTimes.add(time);
-
-        while (ventStartTimes.size() > 0 && //log size > 0
-                time - ventStartTimes.get(0) > LOG_TIME * 1000) { // and time of the earliest logged is > 5sec ago.... remove from log
-            ventStartTimes.remove(0);
-        }
+    public void registerVent() {
+        ventStartTimes.add(System.currentTimeMillis());
     }
 
     public float getRate() {
+        long time = System.currentTimeMillis();
+        // while: log size > 0 and time of the earliest logged is > LOG_TIME sec ago.... remove from log
+        while (ventStartTimes.size() > 0 && time - ventStartTimes.get(0) > LOG_TIME * 1000) {
+            ventStartTimes.remove(0);
+        }
+
         //num ccs in log_time / log_time * 60 sec/min = rate in ccs/min
         return ventStartTimes.size() / (float)LOG_TIME * 60;
     }
 
-    public void refresh() {
-        //ventStartTimes.clear();
-    }
 
 }

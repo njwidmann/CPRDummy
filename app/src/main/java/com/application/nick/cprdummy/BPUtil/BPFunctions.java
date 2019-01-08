@@ -168,6 +168,16 @@ public class BPFunctions {
         }
     }
 
+    /**
+     * Get's ET increase progress as a percentage (0-1) of high value based on x (elapsed_time /
+     * INCREASE_TIME)
+     * @param x elapsed_time / INCREASE_TIME
+     * @return ET increase progress as a percentage (0-1)
+     */
+    public static float etIncreaseFunction(float x) {
+        return (float)(-1.1/(10*Math.pow(x,2) + 1) + 1.1);
+    }
+
     private static class DBPCalculator {
 
         private static final double c1 = -.00045097;

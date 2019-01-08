@@ -10,6 +10,7 @@ public class EndTitleCalculator {
     private static final int LOW_VALUE = 0;
 
     private static final long LOG_TIME = 10; //time we keep track of SBP for average, which affects ETCO2 val
+    private static final long INCREASE_TIME = 500; //ms
 
     private boolean high;
 
@@ -17,6 +18,7 @@ public class EndTitleCalculator {
     private ArrayList<Float> sbpLog;
 
     private int highValue = 0;
+    private long etStartTime = 0;
 
     public EndTitleCalculator() {
         high = false;
@@ -39,7 +41,9 @@ public class EndTitleCalculator {
     public int getEndTitle() {
         //handle breathing cycle changes
         if (high) {
-            return highValue;
+            float elapsedTime = System.currentTimeMillis() - etStartTime;
+            float highValueScaleFactor = BPFunctions.etIncreaseFunction(elapsedTime/INCREASE_TIME);
+            return (int)(highValue * highValueScaleFactor);
         } else {
             return LOW_VALUE;
         }
@@ -48,6 +52,7 @@ public class EndTitleCalculator {
     public void setHigh(float ventRate) {
         high = true;
         highValue = (int)BPFunctions.calculateEndTidal(getAvgSBP(), ventRate);
+        etStartTime = System.currentTimeMillis();
     }
 
     public void setLow() {
@@ -66,13 +71,6 @@ public class EndTitleCalculator {
         return sbpSum / sbpLog.size();
     }
 
-    /**
-     * call this after every breathing cycle so that we can recalculate the next end title value
-     * based only on the next cycle.
-     */
-    private void clearSBPLog() {
-        sbpLog.clear();
-    }
 
     /**
      * Gets the current high value in the ETC02 breathing cycle
@@ -81,7 +79,4 @@ public class EndTitleCalculator {
         return highValue;
     }
 
-    public void refresh() {
-        //clearSBPLog();
-    }
 }
