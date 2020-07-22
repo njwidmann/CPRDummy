@@ -1,6 +1,9 @@
 # CPR Dummy
 Source code for our CPR manikin that simulates blood pressure (BP) and end tidal CO2 (ETCO2) waveforms for the purpose of training the titration of CPR mechanics to physiology, as recommended by the American Heart Association.
 
+Original findings published in:
+Widmann N, Sutton R, Buchanan N, et al. Simulating blood pressure and end tidal CO2 in a CPR training manikin. Comput Methods Programs Biomed. 2019;180:105009. doi:10.1016/j.cmpb.2019.105009
+
 ## [Android Code](app/src/main)
 ### [Android UI Code](app/src/main/res)
 User Interface XML files. These files just describe the physical layout of UI elements on the screen.
@@ -43,7 +46,7 @@ User Interface XML files. These files just describe the physical layout of UI el
 
 **The following classes are used to find BP/ETCO2 from mechanical factors:**
 
-* [BPUtil/BPFunctions.java](app/src/main/java/com/application/nick/cprdummy/BPUtil/BPFunctions.java) - This class includes all of the regression models for finding BP and ETCO2, as described in [my paper](ADD LINK IN FUTURE WHEN PUBLISHED). These models are all based on the idea that good mechanics of CPR according to the AHA (rate of 120 CC/min, depth greater than 1/3 AP chest diameter, no leaning or pauses) should lead to BP and ETCO2 that correspond with high survival rates (80/30mmHg). Models are derived from a series of studies conducted on human and animal subjects. We first calculate SBP and DBP based on depth, assuming all other factors are in line with AHA guidelines. We then account for the other factors through penalty functions. This class includes all of these functions. Inputs for the functions are the mechanical factors found in the previous section.
+* [BPUtil/BPFunctions.java](app/src/main/java/com/application/nick/cprdummy/BPUtil/BPFunctions.java) - This class includes all of the regression models for finding BP and ETCO2, as described in [our paper](https://pubmed.ncbi.nlm.nih.gov/31437806/). These models are all based on the idea that good mechanics of CPR according to the AHA (rate of 120 CC/min, depth greater than 1/3 AP chest diameter, no leaning or pauses) should lead to BP and ETCO2 that correspond with high survival rates (80/30mmHg). Models are derived from a series of studies conducted on human and animal subjects. We first calculate SBP and DBP based on depth, assuming all other factors are in line with AHA guidelines. We then account for the other factors through penalty functions. This class includes all of these functions. Inputs for the functions are the mechanical factors found in the previous section.
 * [BPUtil/BPCalculator.java](app/src/main/java/com/application/nick/cprdummy/BPUtil/BPCalculator.java) - This class is used to find instantaneous BP throughout a compression by considering SBP and DBP found in [BPUtil/BPFunctions.java](app/src/main/java/com/application/nick/cprdummy/BPUtil/BPFunctions.java) and instantaneous depth with respect to average depth. Used to get the correct shape for the BP waveform (rather than simply a square wave).
 * [BPUtil/EndTitleCalculator.java](app/src/main/java/com/application/nick/cprdummy/BPUtil/EndTitleCalculator.java) - This class finds instantaneous ETCO2 values throughout a ventilation cycle by considering the max ETCO2 value calculated in [BPUtil/BPFunctions.java](app/src/main/java/com/application/nick/cprdummy/BPUtil/BPFunctions.java) and the elapsed time since the start of the ventilation cycle. Used to get correct shape for ETCO2 waveform (rather than simply a square wave).
 
