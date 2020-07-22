@@ -2,7 +2,8 @@
 Source code for our CPR manikin that simulates blood pressure (BP) and end tidal CO2 (ETCO2) waveforms for the purpose of training the titration of CPR mechanics to physiology, as recommended by the American Heart Association.
 
 Original findings published in:
-Widmann N, Sutton R, Buchanan N, et al. Simulating blood pressure and end tidal CO2 in a CPR training manikin. Comput Methods Programs Biomed. 2019;180:105009. doi:10.1016/j.cmpb.2019.105009
+
+**Widmann N, Sutton R, Buchanan N, et al. Simulating blood pressure and end tidal CO2 in a CPR training manikin. Comput Methods Programs Biomed. 2019;180:105009. doi:10.1016/j.cmpb.2019.105009**
 
 ## [Android Code](app/src/main)
 ### [Android UI Code](app/src/main/res)
